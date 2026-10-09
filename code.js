@@ -108,7 +108,7 @@ function createScene() {
 
     const ambient = new THREE.AmbientLight(
         0xffffff,
-        3
+        15
     );
 
     scene.add(ambient);
