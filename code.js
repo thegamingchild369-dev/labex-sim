@@ -113,7 +113,14 @@ function createScene() {
 
     scene.add(ambient);
 
+    const sun = new THREE.DirectionalLight(
+        0xffffff,
+        2
+    );
 
+    sun.position.set(50, 100, 50);
+
+    scene.add(sun);
     
     // Load Roblox map
 
