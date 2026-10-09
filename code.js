@@ -21,6 +21,7 @@ let socket;
 
 let player;
 let username = "";
+let myId = null;
 
 const otherPlayers = {};
 const colliders = [];
@@ -32,7 +33,7 @@ let pitch = 0;
 const groundY = 3.5;
 let verticalVelocity = 0;
 
-let noclip = false; // Debug Mode Toggle
+let noclip = false;
 
 const raycaster = new THREE.Raycaster();
 
@@ -66,7 +67,7 @@ function startGame() {
 
 
 // --------------------------------------------------
-// NAMEPLATE CREATOR (2D Canvas Sprite)
+// NAMEPLATE CREATOR
 // --------------------------------------------------
 
 function createNameplate(text) {
@@ -76,13 +77,11 @@ function createNameplate(text) {
 
     const ctx = canvas.getContext("2d");
 
-    // Background pill
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
     ctx.beginPath();
     ctx.roundRect(10, 10, 236, 44, 12);
     ctx.fill();
 
-    // Text style
     ctx.font = "Bold 26px sans-serif";
     ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";
@@ -93,11 +92,12 @@ function createNameplate(text) {
     const material = new THREE.SpriteMaterial({
         map: texture,
         transparent: true,
-        depthTest: false // Ensures name tags render over geometry
+        depthTest: false
     });
 
     const sprite = new THREE.Sprite(material);
     sprite.scale.set(4, 1, 1);
+    sprite.name = "nameplate";
     return sprite;
 }
 
@@ -172,7 +172,6 @@ function createScene() {
                     object.receiveShadow = false;
                 }
             });
-            console.log("Visual map loaded");
         },
 
         undefined,
@@ -196,7 +195,6 @@ function createScene() {
                 }
             });
             scene.add(gltf.scene);
-            console.log("Collision map loaded");
         },
 
         undefined,
@@ -240,14 +238,12 @@ function createScene() {
     document.addEventListener("keydown", event => {
         keys[event.code] = true;
 
-        // Debug Noclip Mode Toggle ("Z" key for user "admin")
         if (event.code === "KeyZ" && username.toLowerCase() === "admin") {
             noclip = !noclip;
             verticalVelocity = 0;
             console.log("Noclip Mode:", noclip ? "ENABLED" : "DISABLED");
         }
 
-        // Jump (when noclip is disabled)
         if (!noclip && event.code === "Space" && player && verticalVelocity === 0) {
             verticalVelocity = 0.35;
         }
@@ -317,25 +313,35 @@ function connectToServer() {
 // --------------------------------------------------
 
 function handleServerMessage(data) {
+    if (data.myId) {
+        myId = data.myId;
+    }
+
     if (data.type === "players") {
-        updatePlayers(data.players);
+        updatePlayers(data);
     }
 }
 
 
 // --------------------------------------------------
-// OTHER PLAYERS (With Nameplates)
+// OTHER PLAYERS (Dynamically Updated Nameplates)
 // --------------------------------------------------
 
-function updatePlayers(players) {
+function updatePlayers(serverMsg) {
+
+    const players = serverMsg.players || {};
+    const localId = serverMsg.myId || myId || players.myId;
 
     for (const id in players) {
 
-        if (id === players.myId) {
+        if (id === "myId" || id === localId) {
             continue;
         }
 
         const data = players[id];
+        if (!data || typeof data !== "object") continue;
+
+        const displayName = data.name || data.username || "Player";
 
         if (!otherPlayers[id]) {
 
@@ -346,17 +352,34 @@ function updatePlayers(players) {
                 })
             );
 
-            // Create and attach username sprite above head
-            const displayName = data.name || data.username || "Player";
             const nameplate = createNameplate(displayName);
             nameplate.position.set(0, 3.2, 0);
             mesh.add(nameplate);
 
+            mesh.userData.name = displayName;
+
             scene.add(mesh);
             otherPlayers[id] = mesh;
+
+        } else {
+
+            // Update existing player nameplate if name changed or was loaded after joining
+            const mesh = otherPlayers[id];
+            if (displayName !== "Player" && mesh.userData.name !== displayName) {
+                const oldSprite = mesh.getObjectByName("nameplate");
+                if (oldSprite) mesh.remove(oldSprite);
+
+                const newSprite = createNameplate(displayName);
+                newSprite.position.set(0, 3.2, 0);
+                mesh.add(newSprite);
+
+                mesh.userData.name = displayName;
+            }
         }
 
-        otherPlayers[id].position.set(data.x, data.y, data.z);
+        if (data.x !== undefined && data.y !== undefined && data.z !== undefined) {
+            otherPlayers[id].position.set(data.x, data.y, data.z);
+        }
     }
 }
 
@@ -380,7 +403,6 @@ function updateMovement() {
     // NOCLIP MODE
     if (noclip) {
 
-        // Free vertical movement in Noclip
         if (keys["Space"]) player.position.y += speed;
         if (keys["ShiftLeft"] || keys["KeyE"]) player.position.y -= speed;
 
@@ -399,7 +421,7 @@ function updateMovement() {
         return;
     }
 
-    // NORMAL MODE (With Gravity & Collisions)
+    // NORMAL MODE
     const targetPos = player.position.clone();
 
     if (direction.length() > 0) {
@@ -412,7 +434,7 @@ function updateMovement() {
 
     if (colliders.length > 0) {
 
-        // 1. Horizontal Wall Collision
+        // Horizontal Wall Collision
         const moveVector = new THREE.Vector3(
             targetPos.x - player.position.x,
             0,
@@ -437,7 +459,7 @@ function updateMovement() {
             }
         }
 
-        // 2. Vertical Floor Collision
+        // Vertical Floor Collision
         const rayOriginDown = new THREE.Vector3(targetPos.x, targetPos.y + 2.0, targetPos.z);
         raycaster.set(rayOriginDown, new THREE.Vector3(0, -1, 0));
 
