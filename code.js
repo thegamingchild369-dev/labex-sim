@@ -108,7 +108,7 @@ function createScene() {
 
     const ambient = new THREE.AmbientLight(
         0xffffff,
-        15
+        1
     );
 
     scene.add(ambient);
@@ -119,15 +119,13 @@ function createScene() {
         2
     );
 
-    sun.position.set(
-        50,
-        100,
-        50
-    );
+    const sun = new THREE.DirectionalLight(0xffffff, 2);
+
+    sun.position.set(0, 100, 0);
+    sun.target.position.set(0, 0, 0);
 
     scene.add(sun);
-    sun.visible = false;
-
+    scene.add(sun.target);
     // Load Roblox map
 
     const loader = new GLTFLoader();
