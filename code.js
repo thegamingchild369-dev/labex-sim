@@ -166,7 +166,7 @@ function createScene() {
 
     player = new THREE.Mesh(
 
-        new THREE.CapsuleGeometry(1.2, 3.6, 8, 16),
+        new THREE.CapsuleGeometry(0.8, 3.6, 4, 8)
 
         new THREE.MeshStandardMaterial({
             color: 0x3366ff
@@ -441,7 +441,7 @@ function updateMovement() {
         player.position
     );
 
-    camera.position.y += 1.2;
+    camera.position.y += 2;
 
 
     camera.rotation.order = "YXZ";
