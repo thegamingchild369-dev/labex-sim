@@ -20,6 +20,7 @@ let renderer;
 let socket;
 
 let player;
+let username = "";
 
 const otherPlayers = {};
 
@@ -27,6 +28,8 @@ const keys = {};
 
 let yaw = 0;
 let pitch = 0;
+const groundY = 1.5;
+let verticalVelocity = 0;
 
 let locked = false;
 
@@ -44,6 +47,12 @@ document.getElementById("play").addEventListener("click", startGame);
 
 function startGame() {
 
+    username = document.getElementById("username").value.trim();
+
+    if (!username) {
+        alert("Please enter a username.");
+        return;
+    }
     document.getElementById("menu").style.display = "none";
     document.getElementById("game").style.display = "block";
 
@@ -163,11 +172,7 @@ function createScene() {
 
     );
 
-    player.position.set(
-        0,
-        1,
-        0
-    );
+    player.position.set(0, groundY, 0);
 
     scene.add(player);
 
@@ -199,12 +204,17 @@ function createScene() {
 
     // Keyboard
 
-    document.addEventListener(
-        "keydown",
-        event => {
-            keys[event.code] = true;
-        }
-    );
+    document.addEventListener("keydown", event => {
+    keys[event.code] = true;
+
+    if (
+        event.code === "Space" &&
+        player &&
+        player.position.y <= groundY + 0.01
+    ) {
+        verticalVelocity = 0.22;
+    }
+});
 
 
     document.addEventListener(
@@ -261,12 +271,12 @@ function connectToServer() {
 
 
     socket.onopen = () => {
+        document.getElementById("status").textContent = "Connected";
 
-        document.getElementById("status")
-            .textContent = "Connected";
-
-        console.log("Connected to server");
-
+        socket.send(JSON.stringify({
+            type: "join",
+            name: username
+        }));
     };
 
 
@@ -415,11 +425,21 @@ function updateMovement() {
     }
 
 
+    // Gravity and jumping
+    verticalVelocity -= 0.012;
+    player.position.y += verticalVelocity;
+
+    if (player.position.y < groundY) {
+        player.position.y = groundY;
+        verticalVelocity = 0;
+    }
+    sendPosition();
+    
     camera.position.copy(
         player.position
     );
 
-    camera.position.y += 0.7;
+    camera.position.y += 1.2;
 
 
     camera.rotation.order = "YXZ";
