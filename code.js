@@ -6,7 +6,7 @@ import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/
 // SETTINGS
 // --------------------------------------------------
 
-const SERVER_URL = "https://server-6tox.onrender.com";
+const SERVER_URL = "wss://server-6tox.onrender.com/ws";
 
 
 // --------------------------------------------------
