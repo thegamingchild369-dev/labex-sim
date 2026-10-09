@@ -28,7 +28,7 @@ const keys = {};
 
 let yaw = 0;
 let pitch = 0;
-const groundY = 1.5;
+const groundY = 3.0; // Doubled to accommodate 2x player size
 let verticalVelocity = 0;
 
 let locked = false;
@@ -104,23 +104,34 @@ function createScene() {
         .appendChild(renderer.domElement);
 
 
-    // Lighting
+    // --------------------------------------------------
+    // LIGHTING FIX: Multi-directional & Ambient Light
+    // --------------------------------------------------
 
-    const ambient = new THREE.AmbientLight(
+    // Hemisphere Light soft sky/ground light eliminates pure pitch-black shadows
+    const hemiLight = new THREE.HemisphereLight(
         0xffffff,
-        3
+        0x444455,
+        1.5
     );
+    scene.add(hemiLight);
 
-    scene.add(ambient);
-
+    // Main Sun Light
     const sun = new THREE.DirectionalLight(
         0xffffff,
-        2
+        2.0
     );
-
     sun.position.set(50, 100, 50);
-
     scene.add(sun);
+
+    // Fill Light on opposite side to illuminate back faces
+    const fillLight = new THREE.DirectionalLight(
+        0xffffff,
+        1.0
+    );
+    fillLight.position.set(-50, 50, -50);
+    scene.add(fillLight);
+
     
     // Load Roblox map
 
@@ -135,9 +146,9 @@ function createScene() {
 
             console.log("Map loaded");
             gltf.scene.traverse(object => {
-            if (object.isMesh) {
-                object.castShadow = false;
-                object.receiveShadow = false;
+                if (object.isMesh) {
+                    object.castShadow = false;
+                    object.receiveShadow = false;
                 }
             });
         },
@@ -155,11 +166,11 @@ function createScene() {
     );
 
 
-    // Player
+    // Player (2x Size: Capsule radius 1.6, height 7.2)
 
     player = new THREE.Mesh(
 
-        new THREE.CapsuleGeometry(0.8, 3.6, 4, 8),
+        new THREE.CapsuleGeometry(1.6, 7.2, 4, 8),
 
         new THREE.MeshStandardMaterial({
             color: 0x3366ff
@@ -174,8 +185,8 @@ function createScene() {
 
     camera.position.set(
         0,
-        1.7,
-        3
+        3.4,
+        6
     );
 
 
@@ -200,16 +211,16 @@ function createScene() {
     // Keyboard
 
     document.addEventListener("keydown", event => {
-    keys[event.code] = true;
+        keys[event.code] = true;
 
-    if (
-        event.code === "Space" &&
-        player &&
-        player.position.y <= groundY + 0.01
-    ) {
-        verticalVelocity = 0.22;
-    }
-});
+        if (
+            event.code === "Space" &&
+            player &&
+            player.position.y <= groundY + 0.01
+        ) {
+            verticalVelocity = 0.35; // Increased jump power for larger scale
+        }
+    });
 
 
     document.addEventListener(
@@ -333,11 +344,12 @@ function updatePlayers(players) {
 
         if (!otherPlayers[id]) {
 
+            // 2x Size for other players (Capsule radius 0.8, height 2.4)
             const mesh = new THREE.Mesh(
 
                 new THREE.CapsuleGeometry(
-                    0.4,
-                    1.2,
+                    0.8,
+                    2.4,
                     4,
                     8
                 ),
@@ -376,7 +388,7 @@ function updateMovement() {
     }
 
 
-    const speed = 0.1;
+    const speed = 0.25; // Increased movement speed from 0.1 to 0.25
 
 
     const direction = new THREE.Vector3();
@@ -434,7 +446,7 @@ function updateMovement() {
         player.position
     );
 
-    camera.position.y += 2;
+    camera.position.y += 4; // Adjusted camera view height to fit 2x model
 
 
     camera.rotation.order = "YXZ";
