@@ -146,6 +146,23 @@ function createScene() {
                 object.receiveShadow = false;
                 }
             });
+            gltf.scene.traverse(object => {
+                    if (!object.isMesh) return;
+
+                    const materials = Array.isArray(object.material)
+                        ? object.material
+                        : [object.material];
+
+                    object.material = materials.map(material => {
+                        return new THREE.MeshBasicMaterial({
+                            color: material.color,
+                            map: material.map,
+                            transparent: material.transparent,
+                            opacity: material.opacity,
+                            side: THREE.DoubleSide
+                        });
+                    });
+                });
 
         },
 
