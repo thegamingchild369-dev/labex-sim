@@ -126,7 +126,7 @@ function createScene() {
     );
 
     scene.add(sun);
-
+    sun.visible = false;
 
     // Load Roblox map
 
