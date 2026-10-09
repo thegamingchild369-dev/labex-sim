@@ -88,6 +88,7 @@ function createScene() {
     renderer = new THREE.WebGLRenderer({
         antialias: true
     });
+    renderer.shadowMap.enabled = false;
 
     renderer.setSize(
         window.innerWidth,
@@ -139,6 +140,12 @@ function createScene() {
             scene.add(gltf.scene);
 
             console.log("Map loaded");
+            gltf.scene.traverse(object => {
+            if (object.isMesh) {
+                object.castShadow = false;
+                object.receiveShadow = false;
+                }
+            });
 
         },
 
@@ -159,7 +166,7 @@ function createScene() {
 
     player = new THREE.Mesh(
 
-        new THREE.CapsuleGeometry(0.6, 1.8, 4, 8),
+        new THREE.CapsuleGeometry(1.2, 3.6, 8, 16),
 
         new THREE.MeshStandardMaterial({
             color: 0x3366ff
