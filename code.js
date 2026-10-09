@@ -166,7 +166,7 @@ function createScene() {
 
     player = new THREE.Mesh(
 
-        new THREE.CapsuleGeometry(0.8, 3.6, 4, 8)
+        new THREE.CapsuleGeometry(0.8, 3.6, 4, 8),
 
         new THREE.MeshStandardMaterial({
             color: 0x3366ff
