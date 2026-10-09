@@ -123,7 +123,7 @@ function createScene() {
     const loader = new GLTFLoader();
 
     loader.load(
-        "map.glb",
+        "map.gltf",
 
         function(gltf) {
 
