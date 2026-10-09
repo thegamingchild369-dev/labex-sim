@@ -9,7 +9,7 @@ import { GLTFLoader } from
 // SETTINGS
 // --------------------------------------------------
 
-const SERVER_URL = "wss://YOUR-RENDER-SERVER.onrender.com";
+const SERVER_URL = "https://server-6tox.onrender.com";
 
 
 // --------------------------------------------------
