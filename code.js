@@ -32,6 +32,8 @@ let pitch = 0;
 const groundY = 3.5;
 let verticalVelocity = 0;
 
+let noclip = false; // Debug Mode Toggle
+
 const raycaster = new THREE.Raycaster();
 
 
@@ -60,6 +62,43 @@ function startGame() {
     createScene();
 
     connectToServer();
+}
+
+
+// --------------------------------------------------
+// NAMEPLATE CREATOR (2D Canvas Sprite)
+// --------------------------------------------------
+
+function createNameplate(text) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 64;
+
+    const ctx = canvas.getContext("2d");
+
+    // Background pill
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.beginPath();
+    ctx.roundRect(10, 10, 236, 44, 12);
+    ctx.fill();
+
+    // Text style
+    ctx.font = "Bold 26px sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 128, 32);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false // Ensures name tags render over geometry
+    });
+
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(4, 1, 1);
+    return sprite;
 }
 
 
@@ -144,7 +183,7 @@ function createScene() {
     );
 
 
-    // Load Collision Map (Invisible Physics Layer)
+    // Load Collision Map
 
     loader.load(
         "map_collision.gltf",
@@ -152,7 +191,7 @@ function createScene() {
         function(gltf) {
             gltf.scene.traverse(object => {
                 if (object.isMesh) {
-                    object.visible = false; // Hide collision geometry
+                    object.visible = false;
                     colliders.push(object);
                 }
             });
@@ -196,12 +235,20 @@ function createScene() {
     document.addEventListener("mousemove", mouseLook);
 
 
-    // Keyboard
+    // Keyboard Controls
 
     document.addEventListener("keydown", event => {
         keys[event.code] = true;
 
-        if (event.code === "Space" && player && verticalVelocity === 0) {
+        // Debug Noclip Mode Toggle ("Z" key for user "admin")
+        if (event.code === "KeyZ" && username.toLowerCase() === "admin") {
+            noclip = !noclip;
+            verticalVelocity = 0;
+            console.log("Noclip Mode:", noclip ? "ENABLED" : "DISABLED");
+        }
+
+        // Jump (when noclip is disabled)
+        if (!noclip && event.code === "Space" && player && verticalVelocity === 0) {
             verticalVelocity = 0.35;
         }
     });
@@ -277,7 +324,7 @@ function handleServerMessage(data) {
 
 
 // --------------------------------------------------
-// OTHER PLAYERS
+// OTHER PLAYERS (With Nameplates)
 // --------------------------------------------------
 
 function updatePlayers(players) {
@@ -288,6 +335,8 @@ function updatePlayers(players) {
             continue;
         }
 
+        const data = players[id];
+
         if (!otherPlayers[id]) {
 
             const mesh = new THREE.Mesh(
@@ -297,25 +346,30 @@ function updatePlayers(players) {
                 })
             );
 
+            // Create and attach username sprite above head
+            const displayName = data.name || data.username || "Player";
+            const nameplate = createNameplate(displayName);
+            nameplate.position.set(0, 3.2, 0);
+            mesh.add(nameplate);
+
             scene.add(mesh);
             otherPlayers[id] = mesh;
         }
 
-        const data = players[id];
         otherPlayers[id].position.set(data.x, data.y, data.z);
     }
 }
 
 
 // --------------------------------------------------
-// PLAYER MOVEMENT & COLLISION RESOLUTION
+// PLAYER MOVEMENT & NOCLIP
 // --------------------------------------------------
 
 function updateMovement() {
 
     if (!player) return;
 
-    const speed = 0.25;
+    const speed = noclip ? 0.6 : 0.25;
     const direction = new THREE.Vector3();
 
     if (keys["KeyW"]) direction.z -= 1;
@@ -323,7 +377,29 @@ function updateMovement() {
     if (keys["KeyA"]) direction.x -= 1;
     if (keys["KeyD"]) direction.x += 1;
 
-    // Target position calculation
+    // NOCLIP MODE
+    if (noclip) {
+
+        // Free vertical movement in Noclip
+        if (keys["Space"]) player.position.y += speed;
+        if (keys["ShiftLeft"] || keys["KeyE"]) player.position.y -= speed;
+
+        if (direction.length() > 0) {
+            direction.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            player.position.addScaledVector(direction, speed);
+        }
+
+        sendPosition();
+
+        camera.position.copy(player.position);
+        camera.position.y += 4.8;
+        camera.rotation.order = "YXZ";
+        camera.rotation.y = yaw;
+        camera.rotation.x = pitch;
+        return;
+    }
+
+    // NORMAL MODE (With Gravity & Collisions)
     const targetPos = player.position.clone();
 
     if (direction.length() > 0) {
@@ -331,14 +407,12 @@ function updateMovement() {
         targetPos.addScaledVector(direction, speed);
     }
 
-    // Gravity & Jump update
     verticalVelocity -= 0.012;
     targetPos.y += verticalVelocity;
 
-    // Apply Wall & Floor Collisions against map_collision.gltf
     if (colliders.length > 0) {
 
-        // 1. Wall Collisions (Horizontal Check)
+        // 1. Horizontal Wall Collision
         const moveVector = new THREE.Vector3(
             targetPos.x - player.position.x,
             0,
@@ -358,13 +432,12 @@ function updateMovement() {
 
             const playerRadius = 1.6;
             if (wallHits.length > 0 && wallHits[0].distance < moveVector.length() + playerRadius) {
-                // Stop horizontal movement into walls
                 targetPos.x = player.position.x;
                 targetPos.z = player.position.z;
             }
         }
 
-        // 2. Floor / Ramp / Stair Collisions (Vertical Downward Check)
+        // 2. Vertical Floor Collision
         const rayOriginDown = new THREE.Vector3(targetPos.x, targetPos.y + 2.0, targetPos.z);
         raycaster.set(rayOriginDown, new THREE.Vector3(0, -1, 0));
 
@@ -380,19 +453,16 @@ function updateMovement() {
             }
         }
     } else {
-        // Fallback ground plane
         if (targetPos.y < groundY) {
             targetPos.y = groundY;
             verticalVelocity = 0;
         }
     }
 
-    // Apply resolved position
     player.position.copy(targetPos);
 
     sendPosition();
 
-    // Camera Positioning
     camera.position.copy(player.position);
     camera.position.y += 4.8;
 
