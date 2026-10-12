@@ -26,7 +26,6 @@ let myId = null;
 let playerModel;
 let playerMixer;
 let characterTemplate = null;
-let myId = null;
 let latestPlayers = {};
 
 const otherPlayers = {};
