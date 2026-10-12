@@ -41,6 +41,7 @@ let verticalVelocity = 0;
 let noclip = false;
 
 const raycaster = new THREE.Raycaster();
+const clock = new THREE.Clock();
 
 
 // --------------------------------------------------
@@ -118,11 +119,11 @@ function loadPlayerCharacter() {
         new URL("character.glb", import.meta.url).href,
         function(gltf) {
             characterTemplate = gltf.scene;
+            characterTemplate.scale.multiplyScalar(4);
             playerModel = cloneSkeleton(characterTemplate);
             playerModel.position.copy(player.position);
             playerModel.rotation.y = yaw;
             scene.add(playerModel);
-            player.visible = false;
 
             // Refresh remote players once the model is ready
             updatePlayers(latestPlayers);
@@ -237,15 +238,8 @@ function createScene() {
 
     // Player Model
 
-    player = new THREE.Mesh(
-        new THREE.CapsuleGeometry(1.6, 8.5, 4, 8),
-        new THREE.MeshStandardMaterial({
-            color: 0x3366ff
-        })
-    );
-
+    player = new THREE.Object3D();
     player.position.set(0, groundY, 0);
-    scene.add(player);
 
 
     camera.position.set(0, groundY + 4.8, 6);
@@ -275,7 +269,7 @@ function createScene() {
         }
 
         if (!noclip && event.code === "Space" && player && verticalVelocity === 0) {
-            verticalVelocity = 0.35;
+            verticalVelocity = 21;
         }
     });
 
@@ -400,11 +394,11 @@ function updatePlayers(players) {
 // PLAYER MOVEMENT & NOCLIP
 // --------------------------------------------------
 
-function updateMovement() {
+function updateMovement(deltaTime) {
 
     if (!player) return;
 
-    const speed = noclip ? 0.6 : 0.25;
+    const speed = noclip ? 36 : 15;
     const direction = new THREE.Vector3();
 
     if (keys["KeyW"]) direction.z -= 1;
@@ -415,22 +409,16 @@ function updateMovement() {
     // NOCLIP MODE
     if (noclip) {
 
-        if (keys["Space"]) player.position.y += speed;
-        if (keys["ShiftLeft"] || keys["KeyE"]) player.position.y -= speed;
+        if (keys["Space"]) player.position.y += speed * deltaTime;
+        if (keys["ShiftLeft"] || keys["KeyE"]) player.position.y -= speed * deltaTime;
 
         if (direction.length() > 0) {
             direction.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-            player.position.addScaledVector(direction, speed);
+            player.position.addScaledVector(direction, speed * deltaTime);
         }
 
-        syncPlayerModel();
+        updateCameraAndModel();
         sendPosition();
-
-        camera.position.copy(player.position);
-        camera.position.y += 4.8;
-        camera.rotation.order = "YXZ";
-        camera.rotation.y = yaw;
-        camera.rotation.x = pitch;
         return;
     }
 
@@ -439,11 +427,11 @@ function updateMovement() {
 
     if (direction.length() > 0) {
         direction.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-        targetPos.addScaledVector(direction, speed);
+        targetPos.addScaledVector(direction, speed * deltaTime);
     }
 
-    verticalVelocity -= 0.012;
-    targetPos.y += verticalVelocity;
+    verticalVelocity -= 43.2 * deltaTime;
+    targetPos.y += verticalVelocity * deltaTime;
 
     if (colliders.length > 0) {
 
@@ -496,15 +484,19 @@ function updateMovement() {
 
     player.position.copy(targetPos);
 
-    syncPlayerModel();
+    updateCameraAndModel();
     sendPosition();
+}
 
+function updateCameraAndModel() {
     camera.position.copy(player.position);
     camera.position.y += 4.8;
 
     camera.rotation.order = "YXZ";
     camera.rotation.y = yaw;
     camera.rotation.x = pitch;
+
+    syncPlayerModel();
 }
 
 function syncPlayerModel() {
@@ -558,7 +550,8 @@ function animate() {
 
     requestAnimationFrame(animate);
 
-    updateMovement();
+    const deltaTime = Math.min(clock.getDelta(), 0.05);
+    updateMovement(deltaTime);
 
     renderer.render(scene, camera);
 }
