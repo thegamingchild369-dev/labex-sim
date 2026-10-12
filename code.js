@@ -118,7 +118,7 @@ function loadPlayerCharacter() {
         new URL("character.glb", import.meta.url).href,
         function(gltf) {
             characterTemplate = gltf.scene;
-            characterTemplate.scale.multiplyScalar(4);
+            characterTemplate.scale.multiplyScalar(2);
 
             // Refresh remote players once the model is ready
             updatePlayers(latestPlayers);
@@ -352,10 +352,22 @@ function updatePlayers(players) {
     if (!characterTemplate) return;
 
     for (const id in latestPlayers) {
-        if (id === myId) continue;
-
         const data = latestPlayers[id];
         if (!data || typeof data !== "object") continue;
+
+        const playerName = data.name || data.username;
+        const isLocalPlayer =
+            (myId !== null && String(id) === String(myId)) ||
+            (typeof playerName === "string" &&
+                playerName.trim().toLowerCase() === username.toLowerCase());
+
+        if (isLocalPlayer) {
+            if (otherPlayers[id]) {
+                scene.remove(otherPlayers[id]);
+                delete otherPlayers[id];
+            }
+            continue;
+        }
 
         if (!otherPlayers[id]) {
             const model = cloneSkeleton(characterTemplate);
@@ -377,7 +389,7 @@ function updatePlayers(players) {
 
     // Remove players who have disconnected
     for (const id in otherPlayers) {
-        if (id === myId || !latestPlayers[id]) {
+        if (!latestPlayers[id]) {
             scene.remove(otherPlayers[id]);
             delete otherPlayers[id];
         }
