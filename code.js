@@ -23,6 +23,9 @@ let player;
 let username = "";
 let myId = null;
 
+let playerModel;
+let playerMixer;
+
 const otherPlayers = {};
 const colliders = [];
 
@@ -105,6 +108,34 @@ function createNameplate(text) {
 // --------------------------------------------------
 // THREE.JS SCENE
 // --------------------------------------------------
+function loadCharacter() {
+    const loader = new GLTFLoader();
+
+    loader.load("character.glb", function(gltf) {
+        playerModel = gltf.scene;
+
+        // Adjust the character size
+        playerModel.scale.set(1, 1, 1);
+
+        // Place the character at the player's position
+        playerModel.position.copy(player.position);
+
+        scene.add(playerModel);
+
+        // Enable animations if the model has any
+        if (gltf.animations.length > 0) {
+            playerMixer = new THREE.AnimationMixer(playerModel);
+
+            const idleAnimation = gltf.animations[0];
+            playerMixer.clipAction(idleAnimation).play();
+        }
+
+        // Hide the old capsule
+        player.visible = false;
+    }, undefined, function(error) {
+        console.error("Could not load character:", error);
+    });
+}
 
 function createScene() {
 
@@ -231,7 +262,7 @@ function createScene() {
     );
 
     document.addEventListener("mousemove", mouseLook);
-
+    loadCharacter();
 
     // Keyboard Controls
 
@@ -491,6 +522,10 @@ function updateMovement() {
     camera.rotation.order = "YXZ";
     camera.rotation.y = yaw;
     camera.rotation.x = pitch;
+    if (playerModel) {
+        playerModel.position.copy(player.position);
+        playerModel.rotation.y = yaw;
+    }
 }
 
 
