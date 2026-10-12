@@ -25,6 +25,9 @@ let myId = null;
 
 let playerModel;
 let playerMixer;
+let characterTemplate = null;
+let myId = null;
+let latestPlayers = {};
 
 const otherPlayers = {};
 const colliders = [];
@@ -108,33 +111,28 @@ function createNameplate(text) {
 // --------------------------------------------------
 // THREE.JS SCENE
 // --------------------------------------------------
-function loadCharacter() {
+
+function loadPlayerCharacter() {
     const loader = new GLTFLoader();
 
-    loader.load("character.glb", function(gltf) {
-        playerModel = gltf.scene;
+    loader.load(
+        "character.glb",
+        function(gltf) {
+            characterTemplate = gltf.scene;
 
-        // Adjust the character size
-        playerModel.scale.set(1, 1, 1);
+            // Adjust this if the model is too large or small
+            characterTemplate.scale.set(1, 1, 1);
 
-        // Place the character at the player's position
-        playerModel.position.copy(player.position);
+            // Refresh remote players once the model is ready
+            updatePlayers(latestPlayers);
 
-        scene.add(playerModel);
-
-        // Enable animations if the model has any
-        if (gltf.animations.length > 0) {
-            playerMixer = new THREE.AnimationMixer(playerModel);
-
-            const idleAnimation = gltf.animations[0];
-            playerMixer.clipAction(idleAnimation).play();
+            console.log("Player character loaded");
+        },
+        undefined,
+        function(error) {
+            console.error("Could not load character.glb:", error);
         }
-
-        // Hide the old capsule
-        player.visible = false;
-    }, undefined, function(error) {
-        console.error("Could not load character:", error);
-    });
+    );
 }
 
 function createScene() {
@@ -262,7 +260,7 @@ function createScene() {
     );
 
     document.addEventListener("mousemove", mouseLook);
-    loadCharacter();
+    loadPlayerCharacter();
 
     // Keyboard Controls
 
@@ -358,58 +356,39 @@ function handleServerMessage(data) {
 // OTHER PLAYERS (Dynamically Updated Nameplates)
 // --------------------------------------------------
 
-function updatePlayers(serverMsg) {
+function updatePlayers(players) {
+    latestPlayers = players || {};
 
-    const players = serverMsg.players || {};
-    const localId = serverMsg.myId || myId || players.myId;
+    if (!characterTemplate) return;
 
-    for (const id in players) {
+    for (const id in latestPlayers) {
+        if (id === myId) continue;
 
-        if (id === "myId" || id === localId) {
-            continue;
-        }
-
-        const data = players[id];
-        if (!data || typeof data !== "object") continue;
-
-        const displayName = data.name || data.username || "Player";
+        const data = latestPlayers[id];
 
         if (!otherPlayers[id]) {
+            const model = characterTemplate.clone(true);
 
-            const mesh = new THREE.Mesh(
-                new THREE.CapsuleGeometry(0.8, 3.2, 4, 8),
-                new THREE.MeshStandardMaterial({
-                    color: 0xff3333
-                })
-            );
+            model.position.set(data.x, data.y, data.z);
+            scene.add(model);
 
-            const nameplate = createNameplate(displayName);
-            nameplate.position.set(0, 3.2, 0);
-            mesh.add(nameplate);
-
-            mesh.userData.name = displayName;
-
-            scene.add(mesh);
-            otherPlayers[id] = mesh;
-
-        } else {
-
-            // Update existing player nameplate if name changed or was loaded after joining
-            const mesh = otherPlayers[id];
-            if (displayName !== "Player" && mesh.userData.name !== displayName) {
-                const oldSprite = mesh.getObjectByName("nameplate");
-                if (oldSprite) mesh.remove(oldSprite);
-
-                const newSprite = createNameplate(displayName);
-                newSprite.position.set(0, 3.2, 0);
-                mesh.add(newSprite);
-
-                mesh.userData.name = displayName;
-            }
+            otherPlayers[id] = model;
         }
 
-        if (data.x !== undefined && data.y !== undefined && data.z !== undefined) {
-            otherPlayers[id].position.set(data.x, data.y, data.z);
+        const model = otherPlayers[id];
+
+        model.position.set(data.x, data.y, data.z);
+
+        if (data.yaw !== undefined) {
+            model.rotation.y = data.yaw;
+        }
+    }
+
+    // Remove players who have disconnected
+    for (const id in otherPlayers) {
+        if (!latestPlayers[id]) {
+            scene.remove(otherPlayers[id]);
+            delete otherPlayers[id];
         }
     }
 }
