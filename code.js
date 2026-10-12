@@ -1,5 +1,6 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
 import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js";
+import { clone as cloneSkeleton } from "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/utils/SkeletonUtils.js";
 
 
 // --------------------------------------------------
@@ -24,7 +25,6 @@ let username = "";
 let myId = null;
 
 let playerModel;
-let playerMixer;
 let characterTemplate = null;
 let latestPlayers = {};
 
@@ -115,12 +115,14 @@ function loadPlayerCharacter() {
     const loader = new GLTFLoader();
 
     loader.load(
-        "character.glb",
+        new URL("character.glb", import.meta.url).href,
         function(gltf) {
             characterTemplate = gltf.scene;
-
-            // Adjust this if the model is too large or small
-            characterTemplate.scale.set(1, 1, 1);
+            playerModel = cloneSkeleton(characterTemplate);
+            playerModel.position.copy(player.position);
+            playerModel.rotation.y = yaw;
+            scene.add(playerModel);
+            player.visible = false;
 
             // Refresh remote players once the model is ready
             updatePlayers(latestPlayers);
@@ -190,7 +192,7 @@ function createScene() {
     const loader = new GLTFLoader();
 
     loader.load(
-        "map.gltf",
+        new URL("map.gltf", import.meta.url).href,
 
         function(gltf) {
             scene.add(gltf.scene);
@@ -213,7 +215,7 @@ function createScene() {
     // Load Collision Map
 
     loader.load(
-        "map_collision.gltf",
+        new URL("map_collision.gltf", import.meta.url).href,
 
         function(gltf) {
             gltf.scene.traverse(object => {
@@ -346,7 +348,7 @@ function handleServerMessage(data) {
     }
 
     if (data.type === "players") {
-        updatePlayers(data);
+        updatePlayers(data.players || data);
     }
 }
 
@@ -356,7 +358,7 @@ function handleServerMessage(data) {
 // --------------------------------------------------
 
 function updatePlayers(players) {
-    latestPlayers = players || {};
+    latestPlayers = players && typeof players === "object" ? players : {};
 
     if (!characterTemplate) return;
 
@@ -364,9 +366,10 @@ function updatePlayers(players) {
         if (id === myId) continue;
 
         const data = latestPlayers[id];
+        if (!data || typeof data !== "object") continue;
 
         if (!otherPlayers[id]) {
-            const model = characterTemplate.clone(true);
+            const model = cloneSkeleton(characterTemplate);
 
             model.position.set(data.x, data.y, data.z);
             scene.add(model);
@@ -385,7 +388,7 @@ function updatePlayers(players) {
 
     // Remove players who have disconnected
     for (const id in otherPlayers) {
-        if (!latestPlayers[id]) {
+        if (id === myId || !latestPlayers[id]) {
             scene.remove(otherPlayers[id]);
             delete otherPlayers[id];
         }
@@ -420,6 +423,7 @@ function updateMovement() {
             player.position.addScaledVector(direction, speed);
         }
 
+        syncPlayerModel();
         sendPosition();
 
         camera.position.copy(player.position);
@@ -492,6 +496,7 @@ function updateMovement() {
 
     player.position.copy(targetPos);
 
+    syncPlayerModel();
     sendPosition();
 
     camera.position.copy(player.position);
@@ -500,10 +505,13 @@ function updateMovement() {
     camera.rotation.order = "YXZ";
     camera.rotation.y = yaw;
     camera.rotation.x = pitch;
-    if (playerModel) {
-        playerModel.position.copy(player.position);
-        playerModel.rotation.y = yaw;
-    }
+}
+
+function syncPlayerModel() {
+    if (!playerModel) return;
+
+    playerModel.position.copy(player.position);
+    playerModel.rotation.y = yaw;
 }
 
 
@@ -522,7 +530,8 @@ function sendPosition() {
             type: "position",
             x: player.position.x,
             y: player.position.y,
-            z: player.position.z
+            z: player.position.z,
+            yaw
         })
     );
 }
