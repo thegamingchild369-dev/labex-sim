@@ -24,7 +24,6 @@ let player;
 let username = "";
 let myId = null;
 
-let playerModel;
 let characterTemplate = null;
 let latestPlayers = {};
 
@@ -120,10 +119,6 @@ function loadPlayerCharacter() {
         function(gltf) {
             characterTemplate = gltf.scene;
             characterTemplate.scale.multiplyScalar(4);
-            playerModel = cloneSkeleton(characterTemplate);
-            playerModel.position.copy(player.position);
-            playerModel.rotation.y = yaw;
-            scene.add(playerModel);
 
             // Refresh remote players once the model is ready
             updatePlayers(latestPlayers);
@@ -417,7 +412,7 @@ function updateMovement(deltaTime) {
             player.position.addScaledVector(direction, speed * deltaTime);
         }
 
-        updateCameraAndModel();
+        updateCamera();
         sendPosition();
         return;
     }
@@ -484,26 +479,17 @@ function updateMovement(deltaTime) {
 
     player.position.copy(targetPos);
 
-    updateCameraAndModel();
+    updateCamera();
     sendPosition();
 }
 
-function updateCameraAndModel() {
+function updateCamera() {
     camera.position.copy(player.position);
     camera.position.y += 4.8;
 
     camera.rotation.order = "YXZ";
     camera.rotation.y = yaw;
     camera.rotation.x = pitch;
-
-    syncPlayerModel();
-}
-
-function syncPlayerModel() {
-    if (!playerModel) return;
-
-    playerModel.position.copy(player.position);
-    playerModel.rotation.y = yaw;
 }
 
 
