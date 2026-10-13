@@ -45,7 +45,12 @@ export function mountMenuBackground(container) {
     loader.load(
         mapUrl.href,
         gltf => {
-            applyWindowTransparency(gltf.scene);
+            const windowCount = applyWindowTransparency(gltf.scene);
+            if (windowCount === 0) {
+                console.warn("Menu map loaded, but no Window meshes were found.");
+            } else {
+                console.info(`Applied 50% transparency to ${windowCount} Window meshes.`);
+            }
             scene.add(gltf.scene);
             const bounds = new THREE.Box3().setFromObject(gltf.scene);
             if (!bounds.isEmpty()) {

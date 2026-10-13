@@ -41,7 +41,12 @@ export function startGame(root, username, room, multiplayer) {
     loader.load(
         mapUrl.href,
         gltf => {
-            applyWindowTransparency(gltf.scene);
+            const windowCount = applyWindowTransparency(gltf.scene);
+            if (windowCount === 0) {
+                console.warn("Map loaded, but no Window meshes were found.");
+            } else {
+                console.info(`Applied 50% transparency to ${windowCount} Window meshes.`);
+            }
             scene.add(gltf.scene);
             gltf.scene.traverse(object => {
                 if (object.isMesh) {
