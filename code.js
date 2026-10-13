@@ -1,6 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
 import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/GLTFLoader.js";
-import { clone as cloneSkeleton } from "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/utils/SkeletonUtils.js";
 
 
 // --------------------------------------------------
@@ -24,7 +23,6 @@ let player;
 let username = "";
 let myId = null;
 
-let characterTemplate = null;
 let latestPlayers = {};
 
 const otherPlayers = {};
@@ -76,6 +74,23 @@ function startGame() {
 // --------------------------------------------------
 
 function createNameplate(text) {
+    const texture = createNameplateTexture(text);
+    const material = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false
+    });
+
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(4, 1, 1);
+    sprite.name = "nameplate";
+    sprite.userData.text = text;
+    sprite.renderOrder = 1;
+    return sprite;
+}
+
+function createNameplateTexture(text) {
     const canvas = document.createElement("canvas");
     canvas.width = 256;
     canvas.height = 64;
@@ -94,43 +109,14 @@ function createNameplate(text) {
     ctx.fillText(text, 128, 32);
 
     const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({
-        map: texture,
-        transparent: true,
-        depthTest: false
-    });
-
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(4, 1, 1);
-    sprite.name = "nameplate";
-    return sprite;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
 }
 
 
 // --------------------------------------------------
 // THREE.JS SCENE
 // --------------------------------------------------
-
-function loadPlayerCharacter() {
-    const loader = new GLTFLoader();
-
-    loader.load(
-        new URL("character.glb", import.meta.url).href,
-        function(gltf) {
-            characterTemplate = gltf.scene;
-            characterTemplate.scale.multiplyScalar(2);
-
-            // Refresh remote players once the model is ready
-            updatePlayers(latestPlayers);
-
-            console.log("Player character loaded");
-        },
-        undefined,
-        function(error) {
-            console.error("Could not load character.glb:", error);
-        }
-    );
-}
 
 function createScene() {
 
@@ -250,7 +236,6 @@ function createScene() {
     );
 
     document.addEventListener("mousemove", mouseLook);
-    loadPlayerCharacter();
 
     // Keyboard Controls
 
@@ -349,8 +334,6 @@ function handleServerMessage(data) {
 function updatePlayers(players) {
     latestPlayers = players && typeof players === "object" ? players : {};
 
-    if (!characterTemplate) return;
-
     for (const id in latestPlayers) {
         const data = latestPlayers[id];
         if (!data || typeof data !== "object") continue;
@@ -370,7 +353,21 @@ function updatePlayers(players) {
         }
 
         if (!otherPlayers[id]) {
-            const model = cloneSkeleton(characterTemplate);
+            const model = new THREE.Group();
+            const capsule = new THREE.Mesh(
+                new THREE.CapsuleGeometry(0.7, 2, 4, 8),
+                new THREE.MeshStandardMaterial({ color: 0x4f83cc })
+            );
+            capsule.position.y = 1.7;
+            model.add(capsule);
+
+            const nameplate = createNameplate(
+                typeof playerName === "string" && playerName.trim()
+                    ? playerName.trim()
+                    : "Player"
+            );
+            nameplate.position.y = 4;
+            model.add(nameplate);
 
             model.position.set(data.x, data.y, data.z);
             scene.add(model);
@@ -379,6 +376,17 @@ function updatePlayers(players) {
         }
 
         const model = otherPlayers[id];
+
+        const nameplate = model.getObjectByName("nameplate");
+        const displayName =
+            typeof playerName === "string" && playerName.trim()
+                ? playerName.trim()
+                : "Player";
+        if (nameplate && nameplate.userData.text !== displayName) {
+            nameplate.material.map.dispose();
+            nameplate.material.map = createNameplateTexture(displayName);
+            nameplate.userData.text = displayName;
+        }
 
         model.position.set(data.x, data.y, data.z);
 
