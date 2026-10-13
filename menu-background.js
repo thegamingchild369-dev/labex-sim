@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { applyWindowTransparency } from "./map-materials.js";
 
 export function mountMenuBackground(container) {
     const scene = new THREE.Scene();
@@ -42,6 +43,7 @@ export function mountMenuBackground(container) {
     loader.load(
         new URL("./map.gltf", import.meta.url).href,
         gltf => {
+            applyWindowTransparency(gltf.scene);
             scene.add(gltf.scene);
             const bounds = new THREE.Box3().setFromObject(gltf.scene);
             if (!bounds.isEmpty()) {

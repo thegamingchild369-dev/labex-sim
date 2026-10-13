@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { applyWindowTransparency } from "./map-materials.js";
 import { RemotePlayers } from "./remote-players.js";
 
 const groundY = 3.5;
@@ -38,6 +39,7 @@ export function startGame(root, username, room, multiplayer) {
     loader.load(
         new URL("./map.gltf", import.meta.url).href,
         gltf => {
+            applyWindowTransparency(gltf.scene);
             scene.add(gltf.scene);
             gltf.scene.traverse(object => {
                 if (object.isMesh) {
