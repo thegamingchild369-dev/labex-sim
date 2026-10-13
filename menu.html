@@ -1,3 +1,4 @@
+<div id="menu-background" aria-hidden="true"></div>
 <section id="menu-screen">
     <h1>LABEX SIM</h1>
     <form id="menu-form">
@@ -9,6 +10,15 @@
             autocomplete="off"
             aria-label="Username"
         />
-        <button id="play" type="submit">PLAY</button>
+        <button id="create-room" class="menu-button" type="submit">CREATE ROOM</button>
     </form>
+    <div id="menu-status" role="status">Connecting to server...</div>
+    <div id="menu-error" role="alert"></div>
+    <section id="room-browser" aria-labelledby="room-browser-title">
+        <h2 id="room-browser-title">Join a Room</h2>
+        <button id="refresh-rooms" class="menu-button" type="button">Refresh Rooms</button>
+        <div id="room-list" aria-live="polite">
+            <p id="room-empty">Loading rooms...</p>
+        </div>
+    </section>
 </section>

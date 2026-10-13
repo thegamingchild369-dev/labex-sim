@@ -1,23 +1,30 @@
 const SERVER_URL = "wss://server-6tox.onrender.com/ws";
 
-export function connectToServer(username, { onPlayers, onStatus }) {
+export function createMultiplayerConnection() {
     const socket = new WebSocket(SERVER_URL);
     let playerId = null;
+    const handlers = {};
+
+    function send(data) {
+        if (socket.readyState !== WebSocket.OPEN) {
+            handlers.onError?.("Not connected to the multiplayer server.");
+            return;
+        }
+        socket.send(JSON.stringify(data));
+    }
 
     socket.onopen = () => {
-        onStatus("Connected");
-        socket.send(JSON.stringify({
-            type: "join",
-            name: username
-        }));
+        handlers.onStatus?.("Connected");
+        send({ type: "list_rooms" });
     };
 
     socket.onclose = () => {
-        onStatus("Disconnected");
+        handlers.onStatus?.("Disconnected");
     };
 
     socket.onerror = error => {
         console.error("WebSocket error:", error);
+        handlers.onError?.("Could not connect to the multiplayer server.");
     };
 
     socket.onmessage = event => {
@@ -26,6 +33,7 @@ export function connectToServer(username, { onPlayers, onStatus }) {
             data = JSON.parse(event.data);
         } catch (error) {
             console.error("Invalid message from multiplayer server:", error);
+            handlers.onError?.("Received an invalid message from the multiplayer server.");
             return;
         }
 
@@ -35,12 +43,30 @@ export function connectToServer(username, { onPlayers, onStatus }) {
             playerId = data.myId;
         }
 
-        if (data.type === "players") {
-            onPlayers(data.players || data, playerId);
+        if (data.type === "rooms") {
+            handlers.onRooms?.(data.rooms);
+        } else if (data.type === "room_joined") {
+            handlers.onRoomJoined?.(data.room);
+        } else if (data.type === "room_error") {
+            handlers.onRoomError?.(data.message || "Could not join that room.");
+        } else if (data.type === "players") {
+            handlers.onPlayers?.(data.players || {}, playerId);
         }
     };
 
     return {
+        setHandlers(nextHandlers) {
+            Object.assign(handlers, nextHandlers);
+        },
+        requestRooms() {
+            send({ type: "list_rooms" });
+        },
+        createRoom(name) {
+            send({ type: "create_room", name });
+        },
+        joinRoom(roomId, name) {
+            send({ type: "join_room", roomId, name });
+        },
         sendPosition(position, yaw) {
             if (socket.readyState !== WebSocket.OPEN) {
                 return;

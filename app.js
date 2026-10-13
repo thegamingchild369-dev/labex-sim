@@ -1,7 +1,11 @@
 import { mountMenu } from "./menu.js";
 import { startGame } from "./game.js";
+import { createMultiplayerConnection } from "./network.js";
 
 const screenRoot = document.getElementById("screen-root");
+let multiplayer;
+let menuController;
+let startingGame = false;
 
 async function loadScreen(path) {
     const response = await fetch(new URL(path, import.meta.url));
@@ -24,10 +28,17 @@ function showError(error) {
 
 async function openMenu() {
     await loadScreen("./menu.html");
-    mountMenu(screenRoot, async username => {
+    multiplayer = createMultiplayerConnection();
+    menuController = mountMenu(screenRoot, multiplayer, async (username, room) => {
+        if (startingGame) {
+            return;
+        }
+
+        startingGame = true;
+        menuController.dispose();
         try {
             await loadScreen("./game.html");
-            startGame(screenRoot, username);
+            startGame(screenRoot, username, room, multiplayer);
         } catch (error) {
             showError(error);
         }

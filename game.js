@@ -1,11 +1,10 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { connectToServer } from "./network.js";
 import { RemotePlayers } from "./remote-players.js";
 
 const groundY = 3.5;
 
-export function startGame(root, username) {
+export function startGame(root, username, room, multiplayer) {
     const canvasRoot = root.querySelector("#game-canvas");
     const statusElement = root.querySelector("#connection-status");
     const scene = new THREE.Scene();
@@ -76,12 +75,13 @@ export function startGame(root, username) {
     const raycaster = new THREE.Raycaster();
     const clock = new THREE.Clock();
     const remotePlayers = new RemotePlayers(scene, username);
-    const multiplayer = connectToServer(username, {
+    multiplayer.setHandlers({
         onPlayers: (players, playerId) => remotePlayers.update(players, playerId),
         onStatus: status => {
-            statusElement.textContent = status;
+            statusElement.textContent = `${status} - ${room.name}`;
         }
     });
+    statusElement.textContent = `Connected - ${room.name}`;
 
     camera.position.set(0, groundY + 4.8, 6);
 
