@@ -40,8 +40,10 @@ export function mountMenuBackground(container) {
     };
 
     const loader = new GLTFLoader();
+    const mapUrl = new URL("./map.gltf", import.meta.url);
+    mapUrl.searchParams.set("upload", Date.now().toString());
     loader.load(
-        new URL("./map.gltf", import.meta.url).href,
+        mapUrl.href,
         gltf => {
             applyWindowTransparency(gltf.scene);
             scene.add(gltf.scene);
