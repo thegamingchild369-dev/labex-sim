@@ -317,7 +317,9 @@ function connectToServer() {
 // --------------------------------------------------
 
 function handleServerMessage(data) {
-    if (data.myId) {
+    if (data.type === "welcome" && typeof data.id === "string") {
+        myId = data.id;
+    } else if (data.myId) {
         myId = data.myId;
     }
 
@@ -340,9 +342,10 @@ function updatePlayers(players) {
 
         const playerName = data.name || data.username;
         const isLocalPlayer =
-            (myId !== null && String(id) === String(myId)) ||
-            (typeof playerName === "string" &&
-                playerName.trim().toLowerCase() === username.toLowerCase());
+            myId !== null
+                ? String(id) === String(myId)
+                : typeof playerName === "string" &&
+                  playerName.trim().toLowerCase() === username.toLowerCase();
 
         if (isLocalPlayer) {
             if (otherPlayers[id]) {
@@ -414,10 +417,18 @@ function updatePlayers(players) {
             nameplate.userData.text = displayName;
         }
 
+        const previousX = model.position.x;
+        const previousZ = model.position.z;
         model.position.set(data.x, data.y, data.z);
 
-        if (data.yaw !== undefined) {
+        if (Number.isFinite(data.yaw)) {
             model.rotation.y = data.yaw;
+        } else {
+            const deltaX = model.position.x - previousX;
+            const deltaZ = model.position.z - previousZ;
+            if (deltaX * deltaX + deltaZ * deltaZ > 0.0001) {
+                model.rotation.y = Math.atan2(-deltaX, -deltaZ);
+            }
         }
     }
 
