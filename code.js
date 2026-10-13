@@ -361,6 +361,32 @@ function updatePlayers(players) {
             capsule.position.y = 1.7;
             model.add(capsule);
 
+            const face = new THREE.Group();
+            face.position.y = 1.7;
+            const eyeGeometry = new THREE.SphereGeometry(0.12, 12, 8);
+            const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            const pupilGeometry = new THREE.SphereGeometry(0.06, 12, 8);
+            const pupilMaterial = new THREE.MeshStandardMaterial({ color: 0x202020 });
+
+            for (const x of [-0.22, 0.22]) {
+                const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                eye.position.set(x, 0.15, -0.64);
+                face.add(eye);
+
+                const pupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+                pupil.position.set(x, 0.15, -0.75);
+                face.add(pupil);
+            }
+
+            const mouth = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 12, 8),
+                new THREE.MeshStandardMaterial({ color: 0x202020 })
+            );
+            mouth.scale.set(1.5, 0.35, 0.5);
+            mouth.position.set(0, -0.16, -0.68);
+            face.add(mouth);
+            model.add(face);
+
             const nameplate = createNameplate(
                 typeof playerName === "string" && playerName.trim()
                     ? playerName.trim()
