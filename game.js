@@ -77,6 +77,9 @@ export function startGame(root, username, room, multiplayer) {
     const remotePlayers = new RemotePlayers(scene, username);
     multiplayer.setHandlers({
         onPlayers: (players, playerId) => remotePlayers.update(players, playerId),
+        onIdentity: assignedUsername => {
+            username = assignedUsername;
+        },
         onStatus: status => {
             statusElement.textContent = `${status} - ${room.name}`;
         }

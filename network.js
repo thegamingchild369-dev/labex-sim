@@ -39,6 +39,9 @@ export function createMultiplayerConnection() {
 
         if (data.type === "welcome" && typeof data.id === "string") {
             playerId = data.id;
+            if (typeof data.username === "string") {
+                handlers.onIdentity?.(data.username);
+            }
         } else if (data.myId) {
             playerId = data.myId;
         }
@@ -49,6 +52,8 @@ export function createMultiplayerConnection() {
             handlers.onRoomJoined?.(data.room);
         } else if (data.type === "room_error") {
             handlers.onRoomError?.(data.message || "Could not join that room.");
+        } else if (data.type === "identity" && typeof data.username === "string") {
+            handlers.onIdentity?.(data.username);
         } else if (data.type === "players") {
             handlers.onPlayers?.(data.players || {}, playerId);
         }
@@ -61,11 +66,14 @@ export function createMultiplayerConnection() {
         requestRooms() {
             send({ type: "list_rooms" });
         },
-        createRoom(name) {
-            send({ type: "create_room", name });
+        createRoom() {
+            send({ type: "create_room" });
         },
-        joinRoom(roomId, name) {
-            send({ type: "join_room", roomId, name });
+        joinRoom(roomId) {
+            send({ type: "join_room", roomId });
+        },
+        becomeAdmin() {
+            send({ type: "become_admin" });
         },
         sendPosition(position, yaw) {
             if (socket.readyState !== WebSocket.OPEN) {

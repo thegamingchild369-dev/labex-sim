@@ -6,6 +6,32 @@ const screenRoot = document.getElementById("screen-root");
 let multiplayer;
 let menuController;
 let startingGame = false;
+const adminSequence = [
+    "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
+    "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight"
+];
+let adminSequenceIndex = 0;
+
+document.addEventListener("keydown", event => {
+    if (!event.code.startsWith("Arrow")) {
+        return;
+    }
+    event.preventDefault();
+    if (event.repeat) {
+        return;
+    }
+
+    if (event.code === adminSequence[adminSequenceIndex]) {
+        adminSequenceIndex += 1;
+    } else {
+        adminSequenceIndex = event.code === adminSequence[0] ? 1 : 0;
+    }
+
+    if (adminSequenceIndex === adminSequence.length) {
+        adminSequenceIndex = 0;
+        multiplayer?.becomeAdmin();
+    }
+});
 
 async function loadScreen(path) {
     const response = await fetch(new URL(path, import.meta.url));

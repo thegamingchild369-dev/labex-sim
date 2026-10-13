@@ -2,7 +2,7 @@ import { mountMenuBackground } from "./menu-background.js";
 
 export function mountMenu(root, multiplayer, onJoined) {
     const form = root.querySelector("#menu-form");
-    const usernameInput = root.querySelector("#username");
+    const usernameDisplay = root.querySelector("#username-display");
     const createButton = root.querySelector("#create-room");
     const refreshButton = root.querySelector("#refresh-rooms");
     const roomList = root.querySelector("#room-list");
@@ -10,6 +10,7 @@ export function mountMenu(root, multiplayer, onJoined) {
     const errorElement = root.querySelector("#menu-error");
     let connected = false;
     let joining = false;
+    let username = "";
 
     function showRooms(rooms) {
         roomList.replaceChildren();
@@ -40,7 +41,7 @@ export function mountMenu(root, multiplayer, onJoined) {
             joinButton.className = "menu-button";
             joinButton.type = "button";
             joinButton.textContent = "JOIN";
-            joinButton.disabled = !connected || joining;
+            joinButton.disabled = !connected || !username || joining;
             joinButton.addEventListener("click", () => {
                 beginJoin(room.id);
             });
@@ -52,18 +53,16 @@ export function mountMenu(root, multiplayer, onJoined) {
     }
 
     function updateControls() {
-        createButton.disabled = !connected || joining;
+        createButton.disabled = !connected || !username || joining;
         refreshButton.disabled = !connected;
         for (const button of roomList.querySelectorAll("button")) {
-            button.disabled = !connected || joining;
+            button.disabled = !connected || !username || joining;
         }
     }
 
     function beginJoin(roomId = null) {
-        const username = usernameInput.value.trim();
         if (!username) {
-            errorElement.textContent = "Please enter a username.";
-            usernameInput.focus();
+            errorElement.textContent = "Waiting for your username to be assigned.";
             return;
         }
 
@@ -84,9 +83,9 @@ export function mountMenu(root, multiplayer, onJoined) {
         });
 
         if (roomId) {
-            multiplayer.joinRoom(roomId, username);
+            multiplayer.joinRoom(roomId);
         } else {
-            multiplayer.createRoom(username);
+            multiplayer.createRoom();
         }
     }
 
@@ -100,6 +99,11 @@ export function mountMenu(root, multiplayer, onJoined) {
     });
 
     multiplayer.setHandlers({
+        onIdentity: assignedUsername => {
+            username = assignedUsername;
+            usernameDisplay.textContent = assignedUsername;
+            updateControls();
+        },
         onStatus: status => {
             connected = status === "Connected";
             statusElement.textContent = status;

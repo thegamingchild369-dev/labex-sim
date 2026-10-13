@@ -2,15 +2,8 @@
 <section id="menu-screen">
     <h1>LABEX SIM</h1>
     <form id="menu-form">
-        <input
-            id="username"
-            type="text"
-            placeholder="Enter username"
-            maxlength="16"
-            autocomplete="off"
-            aria-label="Username"
-        />
-        <button id="create-room" class="menu-button" type="submit">CREATE ROOM</button>
+        <p id="assigned-username">Your username: <strong id="username-display">Assigning...</strong></p>
+        <button id="create-room" class="menu-button" type="submit" disabled>CREATE ROOM</button>
     </form>
     <div id="menu-status" role="status">Connecting to server...</div>
     <div id="menu-error" role="alert"></div>
