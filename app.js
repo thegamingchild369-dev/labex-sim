@@ -1,5 +1,5 @@
-import { mountMenu } from "./screens/menu.js";
-import { startGame } from "./game/game.js";
+import { mountMenu } from "./menu.js";
+import { startGame } from "./game.js";
 
 const screenRoot = document.getElementById("screen-root");
 
@@ -23,10 +23,10 @@ function showError(error) {
 }
 
 async function openMenu() {
-    await loadScreen("./screens/menu.html");
+    await loadScreen("./menu.html");
     mountMenu(screenRoot, async username => {
         try {
-            await loadScreen("./screens/game.html");
+            await loadScreen("./game.html");
             startGame(screenRoot, username);
         } catch (error) {
             showError(error);
