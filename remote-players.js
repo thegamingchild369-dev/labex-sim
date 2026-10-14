@@ -67,7 +67,7 @@ function createCharacterBody(template) {
         size = bounds.getSize(new THREE.Vector3());
     }
 
-    const scale = 5.5 / size.y;
+    const scale = (5.5 * 1.5) / size.y;
     const center = bounds.getCenter(new THREE.Vector3());
     const body = new THREE.Group();
     body.add(source);
