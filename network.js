@@ -88,8 +88,8 @@ export function createMultiplayerConnection() {
                 yaw
             }));
         },
-        setEmoting(emoting) {
-            send({ type: "emote", emoting });
+        setEmoting(emoting, vibrating = false) {
+            send({ type: "emote", emoting, vibrating });
         }
     };
 }

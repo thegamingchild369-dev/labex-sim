@@ -1,7 +1,12 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { applyWindowTransparency } from "./map-materials.js";
-import { RemotePlayers } from "./remote-players.js";
+import {
+    animatePlayerAvatar,
+    createPlayerAvatar,
+    RemotePlayers,
+    setPlayerCharacter
+} from "./remote-players.js";
 
 const groundY = 3.5;
 
@@ -76,14 +81,51 @@ export function startGame(root, username, room, multiplayer) {
 
     const player = new THREE.Object3D();
     player.position.set(0, groundY, 0);
+    let thirdPerson = false;
     let yaw = 0;
     let pitch = 0;
     let verticalVelocity = 0;
     let noclip = false;
     const keys = {};
+    let currentEmoting = false;
+    let currentVibrating = false;
     const raycaster = new THREE.Raycaster();
     const clock = new THREE.Clock();
     const remotePlayers = new RemotePlayers(scene, username);
+    const localAvatar = createPlayerAvatar(player.position);
+    localAvatar.visible = thirdPerson;
+    scene.add(localAvatar);
+
+    loader.load(
+        new URL("./character.glb", import.meta.url).href,
+        gltf => {
+            setPlayerCharacter(localAvatar, gltf.scene);
+            remotePlayers.setCharacterTemplate(gltf.scene);
+        },
+        undefined,
+        error => {
+            if (error.target?.status === 404) {
+                console.info("Optional character.glb was not found; using the default bean.");
+            } else {
+                console.error("Could not load character.glb:", error);
+            }
+        }
+    );
+
+    function updateEmoteState() {
+        const emoting = Boolean(keys.KeyF);
+        const vibrating = emoting && Boolean(keys.ShiftLeft || keys.ShiftRight);
+        if (emoting === currentEmoting && vibrating === currentVibrating) {
+            return;
+        }
+
+        currentEmoting = emoting;
+        currentVibrating = vibrating;
+        multiplayer.setEmoting(emoting, vibrating);
+        localAvatar.userData.emoting = emoting;
+        localAvatar.userData.vibrating = vibrating;
+    }
+
     multiplayer.setHandlers({
         onPlayers: (players, playerId) => remotePlayers.update(players, playerId),
         onIdentity: assignedUsername => {
@@ -114,11 +156,21 @@ export function startGame(root, username, room, multiplayer) {
     }
 
     function updateCamera() {
+        localAvatar.position.copy(player.position);
+        localAvatar.rotation.y = yaw;
+        localAvatar.visible = thirdPerson;
         camera.position.copy(player.position);
-        camera.position.y += 4.8;
         camera.rotation.order = "YXZ";
         camera.rotation.y = yaw;
         camera.rotation.x = pitch;
+        if (thirdPerson) {
+            camera.position.add(new THREE.Vector3(0, 3.2, 8).applyAxisAngle(
+                new THREE.Vector3(0, 1, 0),
+                yaw
+            ));
+        } else {
+            camera.position.y += 4.8;
+        }
     }
 
     function sendPosition() {
@@ -136,7 +188,9 @@ export function startGame(root, username, room, multiplayer) {
 
         if (noclip) {
             if (keys.Space) player.position.y += speed * deltaTime;
-            if (keys.ShiftLeft || keys.KeyE) player.position.y -= speed * deltaTime;
+            if (keys.ShiftLeft || keys.ShiftRight || keys.KeyE) {
+                player.position.y -= speed * deltaTime;
+            }
 
             if (direction.length() > 0) {
                 direction.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
@@ -206,10 +260,15 @@ export function startGame(root, username, room, multiplayer) {
     }
 
     function onKeyDown(event) {
-        if (event.code === "KeyF" && !keys.KeyF) {
-            multiplayer.setEmoting(true);
-        }
         keys[event.code] = true;
+        if (event.code === "KeyF" || event.code === "ShiftLeft" || event.code === "ShiftRight") {
+            updateEmoteState();
+        }
+
+        if (event.code === "KeyP" && !event.repeat) {
+            thirdPerson = !thirdPerson;
+            updateCamera();
+        }
 
         if (event.code === "KeyZ" && username.toLowerCase() === "admin") {
             noclip = !noclip;
@@ -224,18 +283,16 @@ export function startGame(root, username, room, multiplayer) {
 
     function onKeyUp(event) {
         keys[event.code] = false;
-        if (event.code === "KeyF") {
-            multiplayer.setEmoting(false);
+        if (event.code === "KeyF" || event.code === "ShiftLeft" || event.code === "ShiftRight") {
+            updateEmoteState();
         }
     }
 
     function onBlur() {
-        if (keys.KeyF) {
-            multiplayer.setEmoting(false);
-        }
         for (const key of Object.keys(keys)) {
             keys[key] = false;
         }
+        updateEmoteState();
     }
 
     function resize() {
@@ -247,6 +304,7 @@ export function startGame(root, username, room, multiplayer) {
     function animate() {
         requestAnimationFrame(animate);
         updateMovement(Math.min(clock.getDelta(), 0.05));
+        animatePlayerAvatar(localAvatar, clock.elapsedTime);
         remotePlayers.animate(clock.elapsedTime);
         renderer.render(scene, camera);
     }
