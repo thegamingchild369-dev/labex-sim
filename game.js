@@ -126,7 +126,7 @@ export function startGame(root, username, room, multiplayer) {
     }
 
     function updateMovement(deltaTime) {
-        const speed = noclip ? 36 : 15;
+        const speed = noclip ? 36 : (keys.ShiftLeft || keys.ShiftRight ? 24 : 15);
         const direction = new THREE.Vector3();
 
         if (keys.KeyW) direction.z -= 1;
@@ -206,6 +206,9 @@ export function startGame(root, username, room, multiplayer) {
     }
 
     function onKeyDown(event) {
+        if (event.code === "KeyF" && !keys.KeyF) {
+            multiplayer.setEmoting(true);
+        }
         keys[event.code] = true;
 
         if (event.code === "KeyZ" && username.toLowerCase() === "admin") {
@@ -221,6 +224,18 @@ export function startGame(root, username, room, multiplayer) {
 
     function onKeyUp(event) {
         keys[event.code] = false;
+        if (event.code === "KeyF") {
+            multiplayer.setEmoting(false);
+        }
+    }
+
+    function onBlur() {
+        if (keys.KeyF) {
+            multiplayer.setEmoting(false);
+        }
+        for (const key of Object.keys(keys)) {
+            keys[key] = false;
+        }
     }
 
     function resize() {
@@ -232,12 +247,14 @@ export function startGame(root, username, room, multiplayer) {
     function animate() {
         requestAnimationFrame(animate);
         updateMovement(Math.min(clock.getDelta(), 0.05));
+        remotePlayers.animate(clock.elapsedTime);
         renderer.render(scene, camera);
     }
 
     document.addEventListener("mousemove", mouseLook);
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
     window.addEventListener("resize", resize);
     animate();
 }

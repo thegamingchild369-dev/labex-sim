@@ -38,12 +38,14 @@ function createNameplate(text) {
 
 function createRemotePlayer(name, position) {
     const model = new THREE.Group();
+    const body = new THREE.Group();
+    body.scale.setScalar(1.2);
     const capsule = new THREE.Mesh(
         new THREE.CapsuleGeometry(0.7, 2, 4, 8),
         new THREE.MeshStandardMaterial({ color: 0x4f83cc })
     );
     capsule.position.y = 1.7;
-    model.add(capsule);
+    body.add(capsule);
 
     const face = new THREE.Group();
     face.position.y = 1.7;
@@ -69,12 +71,15 @@ function createRemotePlayer(name, position) {
     mouth.scale.set(1.5, 0.35, 0.5);
     mouth.position.set(0, -0.16, -0.68);
     face.add(mouth);
-    model.add(face);
+    body.add(face);
+    model.add(body);
 
     const nameplate = createNameplate(name);
-    nameplate.position.y = 4;
+    nameplate.position.y = 4.5;
     model.add(nameplate);
     model.position.set(position.x, position.y, position.z);
+    model.userData.emoteBody = body;
+    model.userData.emoting = false;
     return model;
 }
 
@@ -147,6 +152,7 @@ export class RemotePlayers {
             const previousX = model.position.x;
             const previousZ = model.position.z;
             model.position.set(x, y, z);
+            model.userData.emoting = data.emoting === true;
 
             if (Number.isFinite(data.yaw)) {
                 model.rotation.y = data.yaw;
@@ -162,6 +168,23 @@ export class RemotePlayers {
         for (const id of this.models.keys()) {
             if (!Object.hasOwn(playerList, id)) {
                 this.remove(id);
+            }
+        }
+    }
+
+    animate(time) {
+        for (const model of this.models.values()) {
+            const body = model.userData.emoteBody;
+            if (!body) {
+                continue;
+            }
+
+            if (model.userData.emoting) {
+                body.position.y = 0.25 + Math.abs(Math.sin(time * 9)) * 0.35;
+                body.rotation.z = Math.sin(time * 7) * 0.3;
+            } else {
+                body.position.y = 0;
+                body.rotation.z = 0;
             }
         }
     }
