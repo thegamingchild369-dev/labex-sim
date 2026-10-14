@@ -14,6 +14,7 @@ export class CameraStreams {
         this.isAdmin = false;
         this.localStream = null;
         this.peers = new Map();
+        this.peerRoles = new Map();
         this.pendingCandidates = new Map();
         this.rtcUnavailableReported = false;
     }
@@ -67,7 +68,10 @@ export class CameraStreams {
         }
 
         for (const id of this.peers.keys()) {
-            if (!activeAdminIds.has(id)) {
+            const role = this.peerRoles.get(id);
+            const isValidViewerPeer = role === "viewer" && activeAdminIds.has(id);
+            const isValidPublisherPeer = role === "publisher" && Boolean(this.localStream);
+            if (!isValidViewerPeer && !isValidPublisherPeer) {
                 this.closePeer(id);
             }
         }
@@ -81,8 +85,11 @@ export class CameraStreams {
             return;
         }
 
-        if (signal.type === "offer" && signal.description && this.localStream) {
-            const peer = this.createPeer(id);
+        if (signal.type === "offer" && signal.description && this.localStream && this.isAdmin) {
+            if (this.peers.has(id)) {
+                this.closePeer(id);
+            }
+            const peer = this.createPeer(id, "publisher");
             await peer.setRemoteDescription(signal.description);
             for (const track of this.localStream.getVideoTracks()) {
                 peer.addTrack(track, this.localStream);
@@ -99,7 +106,8 @@ export class CameraStreams {
 
         const peer = this.peers.get(id);
         if (signal.type === "answer" && signal.description &&
-            sender.isAdmin === true && sender.cameraEnabled === true && peer) {
+            sender.isAdmin === true && sender.cameraEnabled === true &&
+            this.peerRoles.get(id) === "viewer" && peer) {
             await peer.setRemoteDescription(signal.description);
             await this.flushCandidates(id, peer);
         } else if (signal.type === "candidate" && signal.candidate) {
@@ -114,7 +122,7 @@ export class CameraStreams {
     }
 
     startViewerPeer(id) {
-        const peer = this.createPeer(id);
+        const peer = this.createPeer(id, "viewer");
         peer.addTransceiver("video", { direction: "recvonly" });
         peer.createOffer()
             .then(offer => peer.setLocalDescription(offer))
@@ -130,9 +138,10 @@ export class CameraStreams {
             });
     }
 
-    createPeer(id) {
+    createPeer(id, role) {
         const peer = new RTCPeerConnection(rtcConfiguration);
         this.peers.set(id, peer);
+        this.peerRoles.set(id, role);
         peer.onicecandidate = event => {
             if (event.candidate) {
                 this.multiplayer.sendCameraSignal(id, {
@@ -170,6 +179,7 @@ export class CameraStreams {
             peer.close();
             this.peers.delete(id);
         }
+        this.peerRoles.delete(id);
         this.pendingCandidates.delete(id);
         this.remotePlayers.setCameraStream(id, null);
     }
