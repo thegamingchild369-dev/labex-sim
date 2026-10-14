@@ -13,6 +13,10 @@ const adminSequence = [
 let adminSequenceIndex = 0;
 
 document.addEventListener("keydown", event => {
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+    }
+
     if (!event.code.startsWith("Arrow")) {
         return;
     }

@@ -3,6 +3,8 @@ const SERVER_URL = "wss://server-6tox.onrender.com/ws";
 export function createMultiplayerConnection() {
     const socket = new WebSocket(SERVER_URL);
     let playerId = null;
+    let username = null;
+    let isAdmin = false;
     const handlers = {};
 
     function send(data) {
@@ -40,8 +42,10 @@ export function createMultiplayerConnection() {
         if (data.type === "welcome" && typeof data.id === "string") {
             playerId = data.id;
             if (typeof data.username === "string") {
-                handlers.onIdentity?.(data.username);
+                username = data.username;
             }
+            isAdmin = data.isAdmin === true;
+            handlers.onIdentity?.(username, isAdmin);
         } else if (data.myId) {
             playerId = data.myId;
         }
@@ -53,7 +57,11 @@ export function createMultiplayerConnection() {
         } else if (data.type === "room_error") {
             handlers.onRoomError?.(data.message || "Could not join that room.");
         } else if (data.type === "identity" && typeof data.username === "string") {
-            handlers.onIdentity?.(data.username);
+            username = data.username;
+            isAdmin = data.isAdmin === true;
+            handlers.onIdentity?.(username, isAdmin);
+        } else if (data.type === "admin_chat" && typeof data.text === "string") {
+            handlers.onAdminChat?.(data);
         } else if (data.type === "players") {
             handlers.onPlayers?.(data.players || {}, playerId);
         }
@@ -62,6 +70,9 @@ export function createMultiplayerConnection() {
     return {
         setHandlers(nextHandlers) {
             Object.assign(handlers, nextHandlers);
+            if (typeof username === "string" && nextHandlers.onIdentity) {
+                nextHandlers.onIdentity(username, isAdmin);
+            }
         },
         requestRooms() {
             send({ type: "list_rooms" });
@@ -90,6 +101,9 @@ export function createMultiplayerConnection() {
         },
         setEmoting(emoting, vibrating = false) {
             send({ type: "emote", emoting, vibrating });
+        },
+        sendAdminChat(text) {
+            send({ type: "admin_chat", text });
         }
     };
 }

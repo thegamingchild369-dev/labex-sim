@@ -13,6 +13,10 @@ const groundY = 3.5;
 export function startGame(root, username, room, multiplayer) {
     const canvasRoot = root.querySelector("#game-canvas");
     const statusElement = root.querySelector("#connection-status");
+    const adminChat = root.querySelector("#admin-chat");
+    const adminChatForm = root.querySelector("#admin-chat-form");
+    const adminChatInput = root.querySelector("#admin-chat-input");
+    const adminChatMessages = root.querySelector("#admin-chat-messages");
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
@@ -126,11 +130,34 @@ export function startGame(root, username, room, multiplayer) {
         localAvatar.userData.vibrating = vibrating;
     }
 
+    function appendAdminChatMessage(message) {
+        const entry = document.createElement("div");
+        const author = typeof message.author === "string" ? message.author : "Admin";
+        entry.textContent = `${author}: ${message.text}`;
+        adminChatMessages.appendChild(entry);
+        while (adminChatMessages.childElementCount > 100) {
+            adminChatMessages.firstElementChild.remove();
+        }
+        adminChatMessages.scrollTop = adminChatMessages.scrollHeight;
+    }
+
+    adminChatForm.addEventListener("submit", event => {
+        event.preventDefault();
+        const text = adminChatInput.value.trim();
+        if (!text) {
+            return;
+        }
+        multiplayer.sendAdminChat(text);
+        adminChatInput.value = "";
+    });
+
     multiplayer.setHandlers({
         onPlayers: (players, playerId) => remotePlayers.update(players, playerId),
-        onIdentity: assignedUsername => {
+        onIdentity: (assignedUsername, isAdmin) => {
             username = assignedUsername;
+            adminChat.hidden = isAdmin !== true;
         },
+        onAdminChat: appendAdminChatMessage,
         onStatus: status => {
             statusElement.textContent = `${status} - ${room.name}`;
         }
@@ -260,6 +287,22 @@ export function startGame(root, username, room, multiplayer) {
     }
 
     function onKeyDown(event) {
+        if (event.target === adminChatInput) {
+            if (event.code === "Escape") {
+                adminChatInput.blur();
+            }
+            return;
+        }
+
+        if (event.code === "Enter" && !adminChat.hidden && !event.repeat) {
+            event.preventDefault();
+            if (document.pointerLockElement) {
+                document.exitPointerLock();
+            }
+            adminChatInput.focus();
+            return;
+        }
+
         keys[event.code] = true;
         if (event.code === "KeyF" || event.code === "ShiftLeft" || event.code === "ShiftRight") {
             updateEmoteState();

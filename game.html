@@ -1,4 +1,12 @@
 <section id="game-screen">
     <div id="game-canvas"></div>
     <div id="connection-status">Not connected</div>
+    <section id="admin-chat" aria-label="Admin chat" hidden>
+        <div id="admin-chat-messages" aria-live="polite"></div>
+        <form id="admin-chat-form">
+            <label class="visually-hidden" for="admin-chat-input">Admin chat message</label>
+            <input id="admin-chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Press Enter to chat with admins...">
+            <button type="submit">Send</button>
+        </form>
+    </section>
 </section>
