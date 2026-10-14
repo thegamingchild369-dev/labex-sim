@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { applyWindowTransparency } from "./map-materials.js";
+import { CameraStreams } from "./camera-streams.js";
 import {
     animatePlayerAvatar,
     createPlayerAvatar,
@@ -17,6 +18,8 @@ export function startGame(root, username, room, multiplayer) {
     const adminChatForm = root.querySelector("#admin-chat-form");
     const adminChatInput = root.querySelector("#admin-chat-input");
     const adminChatMessages = root.querySelector("#admin-chat-messages");
+    const adminCameraToggle = root.querySelector("#admin-camera-toggle");
+    const adminCameraStatus = root.querySelector("#admin-camera-status");
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
@@ -85,7 +88,7 @@ export function startGame(root, username, room, multiplayer) {
 
     const player = new THREE.Object3D();
     player.position.set(0, groundY, 0);
-    let thirdPerson = false;
+    let cameraMode = 0;
     let yaw = 0;
     let pitch = 0;
     let verticalVelocity = 0;
@@ -97,8 +100,11 @@ export function startGame(root, username, room, multiplayer) {
     const clock = new THREE.Clock();
     const remotePlayers = new RemotePlayers(scene, username);
     const localAvatar = createPlayerAvatar(player.position);
-    localAvatar.visible = thirdPerson;
+    const cameraStreams = new CameraStreams(multiplayer, remotePlayers, localAvatar);
+    localAvatar.visible = false;
     scene.add(localAvatar);
+    let isAdmin = false;
+    let localCameraStream = null;
 
     loader.load(
         new URL("./character.glb", import.meta.url).href,
@@ -151,11 +157,59 @@ export function startGame(root, username, room, multiplayer) {
         adminChatInput.value = "";
     });
 
+    adminCameraToggle.addEventListener("click", async () => {
+        if (localCameraStream) {
+            localCameraStream.getTracks().forEach(track => track.stop());
+            localCameraStream = null;
+            cameraStreams.setLocalStream(null);
+            adminCameraToggle.textContent = "Turn camera on";
+            adminCameraStatus.textContent = "Camera off.";
+            return;
+        }
+
+        adminCameraToggle.disabled = true;
+        adminCameraStatus.textContent = "Requesting camera access...";
+        try {
+            if (!navigator.mediaDevices?.getUserMedia ||
+                typeof RTCPeerConnection !== "function") {
+                throw new Error("Live camera sharing is unavailable in this browser or page context.");
+            }
+            localCameraStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+            });
+            cameraStreams.setLocalStream(localCameraStream);
+            adminCameraToggle.textContent = "Turn camera off";
+            adminCameraStatus.textContent = "Camera on. Your live face is visible to players in this room.";
+        } catch (error) {
+            localCameraStream?.getTracks().forEach(track => track.stop());
+            localCameraStream = null;
+            cameraStreams.setLocalStream(null);
+            console.error("Could not start the admin camera:", error);
+            adminCameraStatus.textContent = error.message || "Could not start the camera.";
+        } finally {
+            adminCameraToggle.disabled = false;
+        }
+    });
+
     multiplayer.setHandlers({
-        onPlayers: (players, playerId) => remotePlayers.update(players, playerId),
-        onIdentity: (assignedUsername, isAdmin) => {
+        onPlayers: (players, playerId) => {
+            remotePlayers.update(players, playerId);
+            cameraStreams.update(players, playerId, isAdmin);
+        },
+        onIdentity: (assignedUsername, adminEnabled) => {
             username = assignedUsername;
-            adminChat.hidden = isAdmin !== true;
+            isAdmin = adminEnabled === true;
+            adminChat.hidden = !isAdmin;
+            adminCameraToggle.hidden = !isAdmin;
+        },
+        onCameraSignal: message => {
+            cameraStreams.handleSignal(message).catch(error => {
+                console.error("Could not process an admin camera connection:", error);
+            });
+        },
+        onError: message => {
+            adminCameraStatus.textContent = message;
         },
         onAdminChat: appendAdminChatMessage,
         onStatus: status => {
@@ -185,19 +239,30 @@ export function startGame(root, username, room, multiplayer) {
     function updateCamera() {
         localAvatar.position.copy(player.position);
         localAvatar.rotation.y = yaw;
-        localAvatar.visible = thirdPerson;
-        camera.position.copy(player.position);
-        camera.rotation.order = "YXZ";
-        camera.rotation.y = yaw;
-        camera.rotation.x = pitch;
-        if (thirdPerson) {
-            camera.position.add(new THREE.Vector3(0, 1.4, 3.8).applyAxisAngle(
-                new THREE.Vector3(0, 1, 0),
-                yaw
-            ));
-        } else {
+        localAvatar.visible = cameraMode !== 0;
+
+        if (cameraMode === 0) {
+            camera.position.copy(player.position);
             camera.position.y += 4.8;
+            camera.rotation.order = "YXZ";
+            camera.rotation.y = yaw;
+            camera.rotation.x = pitch;
+            return;
         }
+
+        const target = player.position.clone();
+        target.y += 2.7;
+        const elevation = Math.max(-0.45, Math.min(0.85, pitch + 0.24));
+        const horizontalDistance = 7;
+        const side = cameraMode === 2 ? -1 : 1;
+        const offset = new THREE.Vector3(
+            0,
+            0,
+            horizontalDistance * side
+        ).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+        offset.y = horizontalDistance * Math.tan(elevation);
+        camera.position.copy(target).add(offset);
+        camera.lookAt(target);
     }
 
     function sendPosition() {
@@ -309,11 +374,11 @@ export function startGame(root, username, room, multiplayer) {
         }
 
         if (event.code === "KeyP" && !event.repeat) {
-            thirdPerson = !thirdPerson;
+            cameraMode = (cameraMode + 1) % 3;
             updateCamera();
         }
 
-        if (event.code === "KeyZ" && username.toLowerCase() === "admin") {
+        if (event.code === "KeyZ" && isAdmin) {
             noclip = !noclip;
             verticalVelocity = 0;
             console.log("Noclip Mode:", noclip ? "ENABLED" : "DISABLED");

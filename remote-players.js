@@ -40,12 +40,9 @@ function createFallbackCharacter() {
 }
 
 function createCharacterBody(template) {
-    let body;
-    if (!template) {
-        body = createFallbackCharacter();
-    } else {
-        body = cloneSkeleton(template);
-        body.traverse(object => {
+    let source = template ? cloneSkeleton(template) : createFallbackCharacter();
+    if (template) {
+        source.traverse(object => {
             if (!object.isMesh) {
                 return;
             }
@@ -54,23 +51,32 @@ function createCharacterBody(template) {
                 ? object.material.map(material => material.clone())
                 : object.material.clone();
         });
-
-        const bounds = new THREE.Box3().setFromObject(body);
-        const size = bounds.getSize(new THREE.Vector3());
-        if (!Number.isFinite(size.y) || size.y <= 0.001) {
-            console.warn("character.glb has no measurable height; using the default bean.");
-            disposeModel(body);
-            body = createFallbackCharacter();
-        } else {
-            const scale = 4.1 / size.y;
-            const center = bounds.getCenter(new THREE.Vector3());
-            body.scale.multiplyScalar(scale);
-            body.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
-        }
     }
 
+    source.updateWorldMatrix(true, true);
+    let bounds = new THREE.Box3().setFromObject(source);
+    let size = bounds.getSize(new THREE.Vector3());
+    if (!Number.isFinite(size.y) || size.y <= 0.001) {
+        if (template) {
+            console.warn("character.glb has no measurable height; using the default bean.");
+            disposeModel(source);
+        }
+        source = createFallbackCharacter();
+        source.updateWorldMatrix(true, true);
+        bounds = new THREE.Box3().setFromObject(source);
+        size = bounds.getSize(new THREE.Vector3());
+    }
+
+    const scale = 5.5 / size.y;
+    const center = bounds.getCenter(new THREE.Vector3());
+    const body = new THREE.Group();
+    body.add(source);
+    body.scale.setScalar(scale);
+    body.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
+    body.updateWorldMatrix(true, true);
     body.userData.basePosition = body.position.clone();
     body.userData.baseRotation = body.rotation.clone();
+    body.userData.bounds = new THREE.Box3().setFromObject(body);
     return body;
 }
 
@@ -86,6 +92,7 @@ export function createPlayerAvatar(position, characterTemplate = null) {
 }
 
 export function setPlayerCharacter(model, template) {
+    const cameraStream = model.userData.cameraStream;
     const previousBody = model.userData.emoteBody;
     if (previousBody) {
         model.remove(previousBody);
@@ -95,6 +102,63 @@ export function setPlayerCharacter(model, template) {
     const body = createCharacterBody(template);
     model.add(body);
     model.userData.emoteBody = body;
+    if (cameraStream) {
+        setPlayerFaceStream(model, cameraStream);
+    }
+}
+
+export function setPlayerFaceStream(model, stream) {
+    model.userData.cameraStream = stream;
+    const existingFace = model.getObjectByName("webcam-face");
+    if (existingFace) {
+        model.remove(existingFace);
+        disposeModel(existingFace);
+    }
+    if (!stream) {
+        return;
+    }
+
+    const body = model.userData.emoteBody;
+    const bounds = body?.userData.bounds;
+    if (!bounds) {
+        return;
+    }
+
+    const size = bounds.getSize(new THREE.Vector3());
+    const video = document.createElement("video");
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+
+    const texture = new THREE.VideoTexture(video);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const faceHeight = size.y * 0.17;
+    const face = new THREE.Mesh(
+        new THREE.PlaneGeometry(faceHeight, faceHeight),
+        new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide })
+    );
+    face.name = "webcam-face";
+    face.position.set(
+        (bounds.min.x + bounds.max.x) / 2,
+        bounds.min.y + size.y * 0.72,
+        bounds.min.z - 0.04
+    );
+    face.userData.video = video;
+    face.renderOrder = 2;
+    model.add(face);
+    video.addEventListener("loadedmetadata", () => {
+        if (face.parent && video.videoHeight > 0) {
+            face.geometry.dispose();
+            face.geometry = new THREE.PlaneGeometry(
+                faceHeight * video.videoWidth / video.videoHeight,
+                faceHeight
+            );
+        }
+    }, { once: true });
+    video.play().catch(error => {
+        console.warn("Could not play the webcam texture:", error);
+    });
 }
 
 export function animatePlayerAvatar(model, time) {
@@ -160,7 +224,7 @@ function createNameplate(text) {
 function createRemotePlayer(name, position, characterTemplate) {
     const model = createPlayerAvatar(position, characterTemplate);
     const nameplate = createNameplate(name);
-    nameplate.position.y = 4.5;
+    nameplate.position.y = 6;
     model.add(nameplate);
     return model;
 }
@@ -174,6 +238,10 @@ function disposeModel(model) {
         object.geometry?.dispose();
         if (object.isSprite) {
             object.material.map?.dispose();
+        }
+        if (object.name === "webcam-face" && object.userData.video) {
+            object.userData.video.pause();
+            object.userData.video.srcObject = null;
         }
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         for (const material of materials) {
@@ -194,6 +262,13 @@ export class RemotePlayers {
         this.characterTemplate = template;
         for (const model of this.models.values()) {
             setPlayerCharacter(model, template);
+        }
+    }
+
+    setCameraStream(id, stream) {
+        const model = this.models.get(id);
+        if (model) {
+            setPlayerFaceStream(model, stream);
         }
     }
 

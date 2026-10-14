@@ -10,9 +10,10 @@ export function createMultiplayerConnection() {
     function send(data) {
         if (socket.readyState !== WebSocket.OPEN) {
             handlers.onError?.("Not connected to the multiplayer server.");
-            return;
+            return false;
         }
         socket.send(JSON.stringify(data));
+        return true;
     }
 
     socket.onopen = () => {
@@ -62,6 +63,8 @@ export function createMultiplayerConnection() {
             handlers.onIdentity?.(username, isAdmin);
         } else if (data.type === "admin_chat" && typeof data.text === "string") {
             handlers.onAdminChat?.(data);
+        } else if (data.type === "camera_signal") {
+            handlers.onCameraSignal?.(data);
         } else if (data.type === "players") {
             handlers.onPlayers?.(data.players || {}, playerId);
         }
@@ -104,6 +107,12 @@ export function createMultiplayerConnection() {
         },
         sendAdminChat(text) {
             send({ type: "admin_chat", text });
+        },
+        setCameraEnabled(enabled) {
+            return send({ type: "camera_enabled", enabled });
+        },
+        sendCameraSignal(targetId, signal) {
+            send({ type: "camera_signal", targetId, signal });
         }
     };
 }
