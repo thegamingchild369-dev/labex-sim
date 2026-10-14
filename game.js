@@ -164,7 +164,7 @@ export function startGame(root, username, room, multiplayer) {
         camera.rotation.y = yaw;
         camera.rotation.x = pitch;
         if (thirdPerson) {
-            camera.position.add(new THREE.Vector3(0, 3.2, 8).applyAxisAngle(
+            camera.position.add(new THREE.Vector3(0, 1.4, 3.8).applyAxisAngle(
                 new THREE.Vector3(0, 1, 0),
                 yaw
             ));

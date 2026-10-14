@@ -147,7 +147,7 @@ function createNameplate(text) {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
         map: createNameplateTexture(text),
         transparent: true,
-        depthTest: false,
+        depthTest: true,
         depthWrite: false
     }));
     sprite.scale.set(4, 1, 1);
