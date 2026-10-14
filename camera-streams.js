@@ -45,10 +45,6 @@ export class CameraStreams {
             }
         }
 
-        if (isAdmin) {
-            return;
-        }
-
         if (typeof RTCPeerConnection !== "function") {
             if (!this.rtcUnavailableReported) {
                 console.error("This browser cannot display the live admin camera.");
@@ -85,26 +81,7 @@ export class CameraStreams {
             return;
         }
 
-        if (this.isAdmin) {
-            if (!this.localStream || sender.isAdmin === true) {
-                return;
-            }
-
-            if (signal.type === "candidate") {
-                const peer = this.peers.get(id);
-                if (peer?.remoteDescription && signal.candidate) {
-                    await peer.addIceCandidate(signal.candidate);
-                } else if (signal.candidate) {
-                    const candidates = this.pendingCandidates.get(id) || [];
-                    candidates.push(signal.candidate);
-                    this.pendingCandidates.set(id, candidates);
-                }
-                return;
-            }
-            if (signal.type !== "offer" || !signal.description) {
-                return;
-            }
-
+        if (signal.type === "offer" && signal.description && this.localStream) {
             const peer = this.createPeer(id);
             await peer.setRemoteDescription(signal.description);
             for (const track of this.localStream.getVideoTracks()) {
@@ -120,22 +97,15 @@ export class CameraStreams {
             return;
         }
 
-        if (sender.isAdmin !== true || sender.cameraEnabled !== true) {
-            return;
-        }
-
         const peer = this.peers.get(id);
-        if (!peer) {
-            return;
-        }
-
-        if (signal.type === "answer" && signal.description) {
+        if (signal.type === "answer" && signal.description &&
+            sender.isAdmin === true && sender.cameraEnabled === true && peer) {
             await peer.setRemoteDescription(signal.description);
             await this.flushCandidates(id, peer);
         } else if (signal.type === "candidate" && signal.candidate) {
-            if (peer.remoteDescription) {
+            if (peer?.remoteDescription) {
                 await peer.addIceCandidate(signal.candidate);
-            } else {
+            } else if (peer || this.localStream) {
                 const candidates = this.pendingCandidates.get(id) || [];
                 candidates.push(signal.candidate);
                 this.pendingCandidates.set(id, candidates);

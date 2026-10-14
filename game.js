@@ -9,7 +9,7 @@ import {
     setPlayerCharacter
 } from "./remote-players.js";
 
-const groundY = 3.5;
+const groundY = 0;
 
 export function startGame(root, username, room, multiplayer) {
     const canvasRoot = root.querySelector("#game-canvas");
@@ -335,7 +335,7 @@ export function startGame(root, username, room, multiplayer) {
             const floorHits = raycaster.intersectObjects(colliders, true);
 
             if (floorHits.length > 0) {
-                const targetGroundY = floorHits[0].point.y + groundY;
+                const targetGroundY = floorHits[0].point.y;
                 if (targetPosition.y <= targetGroundY) {
                     targetPosition.y = targetGroundY;
                     verticalVelocity = 0;
