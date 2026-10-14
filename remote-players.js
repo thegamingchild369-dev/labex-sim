@@ -112,13 +112,13 @@ export function animatePlayerAvatar(model, time) {
     const vibrating = model.userData.vibrating;
     const basePosition = body.userData.basePosition;
     const baseRotation = body.userData.baseRotation;
-    body.position.x = basePosition.x + (vibrating ? Math.sin(time * 38) * 0.08 : 0);
+    body.position.x = basePosition.x + (vibrating ? Math.sin(time * 250) * 0.1 : 0);
     body.position.y = basePosition.y + (vibrating ? 0.18 : 0.25) +
-        Math.abs(Math.sin(time * (vibrating ? 17 : 9))) * (vibrating ? 0.25 : 0.35);
+        Math.abs(Math.sin(time * (vibrating ? 125 : 9))) * (vibrating ? 0.25 : 0.35);
     body.position.z = basePosition.z;
     body.rotation.copy(baseRotation);
-    body.rotation.y += vibrating ? Math.sin(time * 32) * 0.12 : 0;
-    body.rotation.z += Math.sin(time * (vibrating ? 11 : 7)) * (vibrating ? 0.45 : 0.3);
+    body.rotation.y += vibrating ? Math.sin(time * 220) * 0.16 : 0;
+    body.rotation.z += Math.sin(time * (vibrating ? 95 : 7)) * (vibrating ? 0.45 : 0.3);
 }
 
 function createNameplateTexture(text) {
