@@ -10,6 +10,7 @@ import {
 } from "./remote-players.js";
 
 const groundY = 0;
+const cameraHeightOffset = 0.5;
 
 export function startGame(root, username, room, multiplayer) {
     const canvasRoot = root.querySelector("#game-canvas");
@@ -218,7 +219,7 @@ export function startGame(root, username, room, multiplayer) {
     });
     statusElement.textContent = `Connected - ${room.name}`;
 
-    camera.position.set(0, groundY + 4.8, 6);
+    camera.position.set(0, groundY + 4.8 + cameraHeightOffset, 6);
 
     renderer.domElement.addEventListener("click", () => {
         renderer.domElement.requestPointerLock();
@@ -243,7 +244,7 @@ export function startGame(root, username, room, multiplayer) {
 
         if (cameraMode === 0) {
             camera.position.copy(player.position);
-            camera.position.y += 4.8;
+            camera.position.y += 4.8 + cameraHeightOffset;
             camera.rotation.order = "YXZ";
             camera.rotation.y = yaw;
             camera.rotation.x = pitch;
@@ -260,7 +261,7 @@ export function startGame(root, username, room, multiplayer) {
             0,
             horizontalDistance * side
         ).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-        offset.y = horizontalDistance * Math.tan(elevation);
+        offset.y = horizontalDistance * Math.tan(elevation) + cameraHeightOffset;
         camera.position.copy(target).add(offset);
         camera.lookAt(target);
     }
