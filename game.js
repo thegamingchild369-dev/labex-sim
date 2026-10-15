@@ -23,6 +23,9 @@ export function startGame(root, username, room, multiplayer) {
     const adminCameraToggle = root.querySelector("#admin-camera-toggle");
     const adminCameraStatus = root.querySelector("#admin-camera-status");
     const hideSeekTimer = root.querySelector("#hide-seek-timer");
+    const staminaLabel = root.querySelector("#stamina-label");
+    const staminaBar = root.querySelector("#stamina-bar");
+    const staminaFill = root.querySelector("#stamina-fill");
     const hostEndGameButton = root.querySelector("#host-end-game");
     const gameResult = root.querySelector("#game-result");
     const gameResultReasonElement = root.querySelector("#game-result-reason");
@@ -118,7 +121,24 @@ export function startGame(root, username, room, multiplayer) {
     let phaseEndsAt = room.phaseEndsAt || null;
     let gameEnded = room.ended === true;
     let gameResultReason = room.endReason || "";
-    let gameStateTimer = null;
+    let roundNumber = room.roundNumber || 0;
+    let nextRoundAt = room.nextRoundAt || null;
+    let stamina = hideSeekRole === "seeker" ? 15 : 10;
+    let staminaCapacity = stamina;
+
+    function getStaminaCapacity() {
+        return hideSeekRole === "seeker" ? 15 : 10;
+    }
+
+    function updateStaminaBar() {
+        staminaBar.setAttribute("aria-valuemax", String(staminaCapacity));
+        staminaBar.setAttribute("aria-valuenow", stamina.toFixed(1));
+        staminaLabel.textContent = `Stamina ${stamina.toFixed(1)}s`;
+        staminaFill.style.width = `${(stamina / staminaCapacity) * 100}%`;
+        staminaFill.style.backgroundColor = stamina <= staminaCapacity * 0.2
+            ? "#f07862"
+            : "#75df80";
+    }
 
     function formatTime(milliseconds) {
         const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
@@ -132,7 +152,10 @@ export function startGame(root, username, room, multiplayer) {
             return;
         }
 
+        const previousRoundNumber = roundNumber;
         room = { ...room, ...nextRoom };
+        roundNumber = room.roundNumber || 0;
+        nextRoundAt = room.nextRoundAt || null;
         if (role === "seeker" || role === "hider") {
             hideSeekRole = role;
         } else if (room.role === "seeker" || room.role === "hider") {
@@ -142,21 +165,30 @@ export function startGame(root, username, room, multiplayer) {
         phaseEndsAt = room.phaseEndsAt || null;
         gameEnded = room.ended === true;
         gameResultReason = room.endReason || "";
+        staminaCapacity = getStaminaCapacity();
+        stamina = Math.min(stamina, staminaCapacity);
         setPlayerRole(localAvatar, hideSeekRole);
         hostEndGameButton.hidden = multiplayer.getPlayerId() !== room.hostId ||
             room.ended === true;
         gameResult.hidden = room.ended !== true;
         if (room.ended === true) {
             gameResultReason = room.endReason || "The game has ended.";
-            gameResult.querySelector("#game-result-title").textContent = "Game over";
+            gameResult.querySelector("#game-result-title").textContent =
+                nextRoundAt ? "Round over" : "Game over";
             gameResultReasonElement.textContent = gameResultReason;
-            hideSeekTimer.textContent = "Game over";
-            if (gameStateTimer !== null) {
-                window.clearInterval(gameStateTimer);
-                gameStateTimer = null;
+        } else if (roundNumber > previousRoundNumber) {
+            player.position.set(0, groundY, 0);
+            yaw = 0;
+            pitch = 0;
+            verticalVelocity = 0;
+            stamina = staminaCapacity;
+            for (const key of Object.keys(keys)) {
+                keys[key] = false;
             }
+            updateEmoteState();
         }
         updateHideSeekTimer();
+        updateStaminaBar();
     }
 
     function updateHideSeekTimer() {
@@ -167,7 +199,9 @@ export function startGame(root, username, room, multiplayer) {
 
         hideSeekTimer.hidden = false;
         if (gameEnded) {
-            hideSeekTimer.textContent = "Game over";
+            hideSeekTimer.textContent = nextRoundAt
+                ? `Next round: ${formatTime(nextRoundAt - Date.now())}`
+                : "Game over";
         } else if (hideSeekPhase === "hiding") {
             hideSeekTimer.textContent =
                 `Hiders hiding: ${formatTime((phaseEndsAt || Date.now()) - Date.now())}`;
@@ -184,7 +218,7 @@ export function startGame(root, username, room, multiplayer) {
     });
 
     if (isHideAndSeek) {
-        gameStateTimer = window.setInterval(updateHideSeekTimer, 250);
+        window.setInterval(updateHideSeekTimer, 250);
     }
     updateGameState(room);
 
@@ -370,7 +404,6 @@ export function startGame(root, username, room, multiplayer) {
             return;
         }
 
-        const speed = noclip ? 36 : (keys.ShiftLeft || keys.ShiftRight ? 24 : 15);
         const direction = new THREE.Vector3();
 
         if (keys.KeyW) direction.z -= 1;
@@ -379,6 +412,7 @@ export function startGame(root, username, room, multiplayer) {
         if (keys.KeyD) direction.x += 1;
 
         if (noclip) {
+            const speed = 36;
             if (keys.Space) player.position.y += speed * deltaTime;
             if (keys.ShiftLeft || keys.ShiftRight || keys.KeyE) {
                 player.position.y -= speed * deltaTime;
@@ -393,6 +427,19 @@ export function startGame(root, username, room, multiplayer) {
             sendPosition();
             return;
         }
+
+        staminaCapacity = getStaminaCapacity();
+        stamina = Math.min(stamina, staminaCapacity);
+        const sprintRequested = Boolean(keys.ShiftLeft || keys.ShiftRight) &&
+            direction.lengthSq() > 0;
+        const sprinting = sprintRequested && stamina > 0;
+        if (sprinting) {
+            stamina = Math.max(0, stamina - deltaTime);
+        } else if (!sprintRequested) {
+            stamina = Math.min(staminaCapacity, stamina + deltaTime);
+        }
+        updateStaminaBar();
+        const speed = sprinting ? 24 : 15;
 
         const targetPosition = player.position.clone();
         if (direction.length() > 0) {

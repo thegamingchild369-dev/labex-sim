@@ -2,6 +2,13 @@
     <div id="game-canvas"></div>
     <div id="connection-status">Not connected</div>
     <div id="hide-seek-timer" role="status" aria-live="polite" hidden></div>
+    <div id="stamina-meter">
+        <span id="stamina-label">Stamina 10.0s</span>
+        <div id="stamina-bar" role="progressbar" aria-label="Stamina"
+            aria-valuemin="0" aria-valuemax="10" aria-valuenow="10">
+            <div id="stamina-fill"></div>
+        </div>
+    </div>
     <button id="host-end-game" type="button" hidden>End game</button>
     <section id="game-result" role="status" aria-live="assertive" hidden>
         <h2 id="game-result-title">Game over</h2>
