@@ -78,9 +78,9 @@ export function mountLobby(root, initialRoom, multiplayer, onGameStarted, onKick
 
     multiplayer.setHandlers({
         onRoomState: updateRoom,
-        onGameStarted: startedRoom => {
+        onGameStarted: (startedRoom, role) => {
             if (!disposed) {
-                onGameStarted(startedRoom);
+                onGameStarted(startedRoom, role);
             }
         },
         onRoomKicked: message => {

@@ -60,7 +60,9 @@ export function createMultiplayerConnection() {
         } else if (data.type === "room_state") {
             handlers.onRoomState?.(data.room);
         } else if (data.type === "game_started") {
-            handlers.onGameStarted?.(data.room);
+            handlers.onGameStarted?.(data.room, data.role);
+        } else if (data.type === "game_state") {
+            handlers.onGameState?.(data.room, data.role);
         } else if (data.type === "room_kicked") {
             handlers.onRoomKicked?.(data.message || "You were removed from the room.");
         } else if (data.type === "identity" && typeof data.username === "string") {
@@ -103,6 +105,9 @@ export function createMultiplayerConnection() {
         },
         startGame() {
             send({ type: "start_game" });
+        },
+        endGame() {
+            send({ type: "end_game" });
         },
         kickPlayer(targetId) {
             send({ type: "kick_player", targetId });

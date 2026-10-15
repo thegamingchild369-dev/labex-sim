@@ -6,7 +6,8 @@ import {
     animatePlayerAvatar,
     createPlayerAvatar,
     RemotePlayers,
-    setPlayerCharacter
+    setPlayerCharacter,
+    setPlayerRole
 } from "./remote-players.js";
 
 const groundY = 0;
@@ -21,7 +22,12 @@ export function startGame(root, username, room, multiplayer) {
     const adminChatMessages = root.querySelector("#admin-chat-messages");
     const adminCameraToggle = root.querySelector("#admin-camera-toggle");
     const adminCameraStatus = root.querySelector("#admin-camera-status");
+    const hideSeekTimer = root.querySelector("#hide-seek-timer");
+    const hostEndGameButton = root.querySelector("#host-end-game");
+    const gameResult = root.querySelector("#game-result");
+    const gameResultReasonElement = root.querySelector("#game-result-reason");
     const gameModeName = room.gameMode === "hide_and_seek" ? "Hide and Seek" : "Sandbox";
+    const isHideAndSeek = room.gameMode === "hide_and_seek";
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
@@ -107,11 +113,86 @@ export function startGame(root, username, room, multiplayer) {
     scene.add(localAvatar);
     let isAdmin = false;
     let localCameraStream = null;
+    let hideSeekRole = room.role || null;
+    let hideSeekPhase = room.phase || null;
+    let phaseEndsAt = room.phaseEndsAt || null;
+    let gameEnded = room.ended === true;
+    let gameResultReason = room.endReason || "";
+    let gameStateTimer = null;
+
+    function formatTime(milliseconds) {
+        const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+
+    function updateGameState(nextRoom, role = null) {
+        if (!nextRoom) {
+            return;
+        }
+
+        room = { ...room, ...nextRoom };
+        if (role === "seeker" || role === "hider") {
+            hideSeekRole = role;
+        } else if (room.role === "seeker" || room.role === "hider") {
+            hideSeekRole = room.role;
+        }
+        hideSeekPhase = room.phase || hideSeekPhase;
+        phaseEndsAt = room.phaseEndsAt || null;
+        gameEnded = room.ended === true;
+        gameResultReason = room.endReason || "";
+        setPlayerRole(localAvatar, hideSeekRole);
+        hostEndGameButton.hidden = multiplayer.getPlayerId() !== room.hostId ||
+            room.ended === true;
+        gameResult.hidden = room.ended !== true;
+        if (room.ended === true) {
+            gameResultReason = room.endReason || "The game has ended.";
+            gameResult.querySelector("#game-result-title").textContent = "Game over";
+            gameResultReasonElement.textContent = gameResultReason;
+            hideSeekTimer.textContent = "Game over";
+            if (gameStateTimer !== null) {
+                window.clearInterval(gameStateTimer);
+                gameStateTimer = null;
+            }
+        }
+        updateHideSeekTimer();
+    }
+
+    function updateHideSeekTimer() {
+        if (!isHideAndSeek) {
+            hideSeekTimer.hidden = true;
+            return;
+        }
+
+        hideSeekTimer.hidden = false;
+        if (gameEnded) {
+            hideSeekTimer.textContent = "Game over";
+        } else if (hideSeekPhase === "hiding") {
+            hideSeekTimer.textContent =
+                `Hiders hiding: ${formatTime((phaseEndsAt || Date.now()) - Date.now())}`;
+        } else if (hideSeekPhase === "seeking") {
+            hideSeekTimer.textContent =
+                `Time remaining: ${formatTime((phaseEndsAt || Date.now()) - Date.now())}`;
+        } else {
+            hideSeekTimer.textContent = "Hide and Seek";
+        }
+    }
+
+    hostEndGameButton.addEventListener("click", () => {
+        multiplayer.endGame();
+    });
+
+    if (isHideAndSeek) {
+        gameStateTimer = window.setInterval(updateHideSeekTimer, 250);
+    }
+    updateGameState(room);
 
     loader.load(
         new URL("./character.glb", import.meta.url).href,
         gltf => {
             setPlayerCharacter(localAvatar, gltf.scene);
+            setPlayerRole(localAvatar, hideSeekRole);
             remotePlayers.setCharacterTemplate(gltf.scene);
         },
         undefined,
@@ -195,9 +276,20 @@ export function startGame(root, username, room, multiplayer) {
     });
 
     multiplayer.setHandlers({
+        onRoomState: nextRoom => {
+            const currentRole = nextRoom?.roles?.[multiplayer.getPlayerId()] || null;
+            updateGameState(nextRoom, currentRole);
+        },
         onPlayers: (players, playerId) => {
             remotePlayers.update(players, playerId);
             cameraStreams.update(players, playerId, isAdmin);
+            if (players[playerId]?.role) {
+                setPlayerRole(localAvatar, players[playerId].role);
+                hideSeekRole = players[playerId].role;
+            }
+        },
+        onGameState: (nextRoom, role) => {
+            updateGameState(nextRoom, role);
         },
         onIdentity: (assignedUsername, adminEnabled) => {
             username = assignedUsername;
@@ -272,6 +364,12 @@ export function startGame(root, username, room, multiplayer) {
     }
 
     function updateMovement(deltaTime) {
+        if (gameEnded ||
+            (isHideAndSeek && hideSeekPhase === "hiding" && hideSeekRole === "seeker")) {
+            updateCamera();
+            return;
+        }
+
         const speed = noclip ? 36 : (keys.ShiftLeft || keys.ShiftRight ? 24 : 15);
         const direction = new THREE.Vector3();
 

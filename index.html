@@ -318,6 +318,72 @@
             z-index: 5;
         }
 
+        #hide-seek-timer {
+            position: fixed;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 18px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 8px;
+            color: white;
+            background: rgba(0, 0, 0, 0.78);
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+            z-index: 7;
+        }
+
+        #host-end-game {
+            position: fixed;
+            top: 60px;
+            left: 10px;
+            z-index: 7;
+            padding: 9px 12px;
+            border: 0;
+            border-radius: 6px;
+            color: white;
+            background: #a83232;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+        }
+
+        #game-result {
+            position: fixed;
+            inset: 0;
+            z-index: 8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 24px;
+            color: white;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.76);
+        }
+
+        #game-result[hidden],
+        #hide-seek-timer[hidden],
+        #host-end-game[hidden] {
+            display: none;
+        }
+
+        #game-result h2,
+        #game-result p {
+            margin: 0;
+        }
+
+        #game-result h2 {
+            font-size: clamp(32px, 6vw, 56px);
+        }
+
+        #game-result p {
+            max-width: 600px;
+            font-size: 20px;
+        }
+
         #admin-camera-toggle {
             position: fixed;
             top: 10px;

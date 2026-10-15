@@ -93,6 +93,7 @@ export function createPlayerAvatar(position, characterTemplate = null) {
 
 export function setPlayerCharacter(model, template) {
     const cameraStream = model.userData.cameraStream;
+    const hideSeekRole = model.userData.hideSeekRole;
     const previousBody = model.userData.emoteBody;
     if (previousBody) {
         model.remove(previousBody);
@@ -102,9 +103,42 @@ export function setPlayerCharacter(model, template) {
     const body = createCharacterBody(template);
     model.add(body);
     model.userData.emoteBody = body;
+    model.userData.hideSeekRole = null;
+    setPlayerRole(model, hideSeekRole);
     if (cameraStream) {
         setPlayerFaceStream(model, cameraStream);
     }
+}
+
+export function setPlayerRole(model, role) {
+    if (model.userData.hideSeekRole === role) {
+        return;
+    }
+
+    model.userData.hideSeekRole = role;
+    model.traverse(object => {
+        if (!object.isMesh) {
+            return;
+        }
+
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) {
+            if (!material.color) {
+                continue;
+            }
+            if (!material.userData.hideSeekBaseColor) {
+                material.userData.hideSeekBaseColor = material.color.clone();
+            }
+
+            if (role === "seeker") {
+                material.color.set(0xd93636);
+            } else if (role === "hider") {
+                material.color.set(0x2878df);
+            } else {
+                material.color.copy(material.userData.hideSeekBaseColor);
+            }
+        }
+    });
 }
 
 export function setPlayerFaceStream(model, stream) {
@@ -280,6 +314,11 @@ export class RemotePlayers {
                 continue;
             }
 
+            if (data.hidden === true) {
+                this.remove(id);
+                continue;
+            }
+
             const playerName = data.name || data.username;
             const isLocalPlayer = localPlayerId !== null
                 ? String(id) === String(localPlayerId)
@@ -308,6 +347,8 @@ export class RemotePlayers {
                 this.models.set(id, model);
                 this.scene.add(model);
             }
+            model.visible = true;
+            setPlayerRole(model, data.role);
 
             const nameplate = model.getObjectByName("nameplate");
             if (nameplate && nameplate.userData.text !== displayName) {

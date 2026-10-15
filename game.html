@@ -1,6 +1,12 @@
 <section id="game-screen">
     <div id="game-canvas"></div>
     <div id="connection-status">Not connected</div>
+    <div id="hide-seek-timer" role="status" aria-live="polite" hidden></div>
+    <button id="host-end-game" type="button" hidden>End game</button>
+    <section id="game-result" role="status" aria-live="assertive" hidden>
+        <h2 id="game-result-title">Game over</h2>
+        <p id="game-result-reason"></p>
+    </section>
     <button id="admin-camera-toggle" type="button" hidden>Turn camera on</button>
     <div id="admin-camera-status" aria-live="polite"></div>
     <section id="admin-chat" aria-label="Admin chat" hidden>

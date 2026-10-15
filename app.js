@@ -70,7 +70,9 @@ async function openMenu() {
                 screenRoot,
                 room,
                 multiplayer,
-                startedRoom => launchGame(username, startedRoom),
+                (startedRoom, role) => {
+                    launchGame(username, { ...startedRoom, role });
+                },
                 async message => {
                     startingGame = false;
                     screenController.dispose();
