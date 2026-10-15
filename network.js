@@ -57,6 +57,12 @@ export function createMultiplayerConnection() {
             handlers.onRoomJoined?.(data.room);
         } else if (data.type === "room_error") {
             handlers.onRoomError?.(data.message || "Could not join that room.");
+        } else if (data.type === "room_state") {
+            handlers.onRoomState?.(data.room);
+        } else if (data.type === "game_started") {
+            handlers.onGameStarted?.(data.room);
+        } else if (data.type === "room_kicked") {
+            handlers.onRoomKicked?.(data.message || "You were removed from the room.");
         } else if (data.type === "identity" && typeof data.username === "string") {
             username = data.username;
             isAdmin = data.isAdmin === true;
@@ -77,6 +83,9 @@ export function createMultiplayerConnection() {
                 nextHandlers.onIdentity(username, isAdmin);
             }
         },
+        getPlayerId() {
+            return playerId;
+        },
         requestRooms() {
             send({ type: "list_rooms" });
         },
@@ -85,6 +94,18 @@ export function createMultiplayerConnection() {
         },
         joinRoom(roomId) {
             send({ type: "join_room", roomId });
+        },
+        requestRoomState() {
+            send({ type: "request_room_state" });
+        },
+        setGameMode(gameMode) {
+            send({ type: "set_game_mode", gameMode });
+        },
+        startGame() {
+            send({ type: "start_game" });
+        },
+        kickPlayer(targetId) {
+            send({ type: "kick_player", targetId });
         },
         becomeAdmin() {
             send({ type: "become_admin" });

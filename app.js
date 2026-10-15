@@ -1,10 +1,11 @@
 import { mountMenu } from "./menu.js";
+import { mountLobby } from "./lobby.js";
 import { startGame } from "./game.js";
 import { createMultiplayerConnection } from "./network.js";
 
 const screenRoot = document.getElementById("screen-root");
 let multiplayer;
-let menuController;
+let screenController;
 let startingGame = false;
 const adminSequence = [
     "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
@@ -58,21 +59,44 @@ function showError(error) {
 
 async function openMenu() {
     await loadScreen("./menu.html");
-    multiplayer = createMultiplayerConnection();
-    menuController = mountMenu(screenRoot, multiplayer, async (username, room) => {
-        if (startingGame) {
-            return;
-        }
-
-        startingGame = true;
-        menuController.dispose();
+    if (!multiplayer) {
+        multiplayer = createMultiplayerConnection();
+    }
+    screenController = mountMenu(screenRoot, multiplayer, async (username, room) => {
+        screenController.dispose();
         try {
-            await loadScreen("./game.html");
-            startGame(screenRoot, username, room, multiplayer);
+            await loadScreen("./lobby.html");
+            screenController = mountLobby(
+                screenRoot,
+                room,
+                multiplayer,
+                startedRoom => launchGame(username, startedRoom),
+                async message => {
+                    startingGame = false;
+                    screenController.dispose();
+                    await openMenu();
+                    screenRoot.querySelector("#menu-error").textContent = message;
+                }
+            );
         } catch (error) {
             showError(error);
         }
     });
+}
+
+async function launchGame(username, room) {
+    if (startingGame) {
+        return;
+    }
+
+    startingGame = true;
+    screenController?.dispose();
+    try {
+        await loadScreen("./game.html");
+        startGame(screenRoot, username, room, multiplayer);
+    } catch (error) {
+        showError(error);
+    }
 }
 
 openMenu().catch(showError);

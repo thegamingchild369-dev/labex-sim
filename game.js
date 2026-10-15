@@ -21,6 +21,7 @@ export function startGame(root, username, room, multiplayer) {
     const adminChatMessages = root.querySelector("#admin-chat-messages");
     const adminCameraToggle = root.querySelector("#admin-camera-toggle");
     const adminCameraStatus = root.querySelector("#admin-camera-status");
+    const gameModeName = room.gameMode === "hide_and_seek" ? "Hide and Seek" : "Sandbox";
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
 
@@ -214,10 +215,10 @@ export function startGame(root, username, room, multiplayer) {
         },
         onAdminChat: appendAdminChatMessage,
         onStatus: status => {
-            statusElement.textContent = `${status} - ${room.name}`;
+            statusElement.textContent = `${status} - ${room.name} - ${gameModeName}`;
         }
     });
-    statusElement.textContent = `Connected - ${room.name}`;
+    statusElement.textContent = `Connected - ${room.name} - ${gameModeName}`;
 
     camera.position.set(0, groundY + 4.8 + cameraHeightOffset, 6);
 

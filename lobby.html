@@ -1,0 +1,21 @@
+<div id="menu-background" aria-hidden="true"></div>
+<section id="lobby-screen">
+    <h1>ROOM LOBBY</h1>
+    <p id="lobby-room-name"></p>
+    <section id="lobby-players-panel" aria-labelledby="lobby-players-title">
+        <h2 id="lobby-players-title">Players in the lobby</h2>
+        <ul id="lobby-player-list" aria-live="polite"></ul>
+    </section>
+    <section id="lobby-mode-panel" aria-labelledby="lobby-mode-title">
+        <h2 id="lobby-mode-title">Game mode</h2>
+        <label for="lobby-game-mode">Choose a mode</label>
+        <select id="lobby-game-mode">
+            <option value="sandbox">Sandbox</option>
+            <option value="hide_and_seek">Hide and Seek</option>
+        </select>
+        <p id="lobby-mode-display" aria-live="polite" hidden></p>
+    </section>
+    <div id="lobby-host-status" role="status"></div>
+    <div id="lobby-error" role="alert"></div>
+    <button id="lobby-start" class="menu-button" type="button">START GAME</button>
+</section>
