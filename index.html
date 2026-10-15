@@ -334,6 +334,21 @@
             z-index: 7;
         }
 
+        #location-reveal-timer {
+            position: fixed;
+            top: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 8px;
+            color: white;
+            background: rgba(180, 45, 45, 0.9);
+            font-weight: 700;
+            text-align: center;
+            z-index: 7;
+        }
+
         #stamina-meter {
             position: fixed;
             bottom: 24px;
@@ -402,6 +417,7 @@
 
         #game-result[hidden],
         #hide-seek-timer[hidden],
+        #location-reveal-timer[hidden],
         #host-end-game[hidden] {
             display: none;
         }

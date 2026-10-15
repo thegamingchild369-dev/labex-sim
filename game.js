@@ -23,6 +23,7 @@ export function startGame(root, username, room, multiplayer) {
     const adminCameraToggle = root.querySelector("#admin-camera-toggle");
     const adminCameraStatus = root.querySelector("#admin-camera-status");
     const hideSeekTimer = root.querySelector("#hide-seek-timer");
+    const locationRevealTimer = root.querySelector("#location-reveal-timer");
     const staminaLabel = root.querySelector("#stamina-label");
     const staminaBar = root.querySelector("#stamina-bar");
     const staminaFill = root.querySelector("#stamina-fill");
@@ -119,6 +120,7 @@ export function startGame(root, username, room, multiplayer) {
     let hideSeekRole = room.role || null;
     let hideSeekPhase = room.phase || null;
     let phaseEndsAt = room.phaseEndsAt || null;
+    let locationRevealEndsAt = room.locationRevealEndsAt || null;
     let gameEnded = room.ended === true;
     let gameResultReason = room.endReason || "";
     let roundNumber = room.roundNumber || 0;
@@ -163,6 +165,7 @@ export function startGame(root, username, room, multiplayer) {
         }
         hideSeekPhase = room.phase || hideSeekPhase;
         phaseEndsAt = room.phaseEndsAt || null;
+        locationRevealEndsAt = room.locationRevealEndsAt || null;
         gameEnded = room.ended === true;
         gameResultReason = room.endReason || "";
         staminaCapacity = getStaminaCapacity();
@@ -194,10 +197,17 @@ export function startGame(root, username, room, multiplayer) {
     function updateHideSeekTimer() {
         if (!isHideAndSeek) {
             hideSeekTimer.hidden = true;
+            locationRevealTimer.hidden = true;
             return;
         }
 
         hideSeekTimer.hidden = false;
+        const revealTimeRemaining = (locationRevealEndsAt || 0) - Date.now();
+        locationRevealTimer.hidden = revealTimeRemaining <= 0;
+        if (revealTimeRemaining > 0) {
+            locationRevealTimer.textContent =
+                `All locations revealed: ${Math.ceil(revealTimeRemaining / 1000)}s`;
+        }
         if (gameEnded) {
             hideSeekTimer.textContent = nextRoundAt
                 ? `Next round: ${formatTime(nextRoundAt - Date.now())}`
